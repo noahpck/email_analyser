@@ -1,1 +1,26 @@
+# Secrets / OAuth
 .credentials
+credentials.json
+token.json
+*.pem
+.env
+.env.*
+
+# Local database
+*.db
+*.sqlite
+*.sqlite3
+*.db-journal
+
+# Python
+__pycache__/
+*.py[cod]
+.venv/
+venv/
+*.egg-info/
+.pytest_cache/
+
+# Editor / OS
+.vscode/
+.idea/
+.DS_Store
