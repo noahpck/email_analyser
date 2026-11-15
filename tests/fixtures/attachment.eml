@@ -1,0 +1,25 @@
+Delivered-To: alex.doe@example.com
+Authentication-Results: mx.google.com;
+       dkim=pass header.i=@example.org header.s=s1 header.b=abc;
+       spf=pass smtp.mailfrom=accounts@example.org;
+       dmarc=pass header.from=example.org
+Return-Path: <accounts@example.org>
+From: "Accounts" <accounts@example.org>
+To: alex.doe@example.com
+Subject: Invoice attached
+Message-ID: <inv1@example.org>
+Date: Mon, 02 Nov 2026 10:00:00 +0000
+MIME-Version: 1.0
+Content-Type: multipart/mixed; boundary="BOUNDARY"
+
+--BOUNDARY
+Content-Type: text/plain; charset="utf-8"
+
+Please see the attached invoice.
+--BOUNDARY
+Content-Type: application/octet-stream; name="invoice.pdf.exe"
+Content-Disposition: attachment; filename="invoice.pdf.exe"
+Content-Transfer-Encoding: base64
+
+TVqQAAMAAAAEAAAA
+--BOUNDARY--

@@ -1,0 +1,15 @@
+Delivered-To: alex.doe@example.com
+Authentication-Results: mx.google.com;
+       spf=softfail (google.com: domain of transitioning bounce@paypa1.com does not designate 198.51.100.7 as permitted sender) smtp.mailfrom=bounce@paypa1.com;
+       dmarc=fail (p=NONE sp=NONE dis=NONE) header.from=paypa1.com
+Return-Path: <bounce@paypa1.com>
+From: "PayPal" <service@paypa1.com>
+To: alex.doe@example.com
+Subject: Your account access has been limited
+Message-ID: <abc123@paypa1.com>
+Date: Mon, 02 Nov 2026 10:00:00 +0000
+MIME-Version: 1.0
+Content-Type: text/html; charset="utf-8"
+
+<p>We noticed unusual activity. Please confirm your details.</p>
+<a href="http://192.0.2.10/login">https://www.paypal.com/signin</a>

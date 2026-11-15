@@ -1,0 +1,16 @@
+Delivered-To: alex.doe@example.com
+Authentication-Results: mx.google.com;
+       spf=fail (google.com: domain of billing@examplebank.com does not designate 198.51.100.2 as permitted sender) smtp.mailfrom=billing@examplebank.com;
+       dmarc=fail (p=REJECT sp=REJECT dis=QUARANTINE) header.from=examplebank.com
+Authentication-Results: mx.google.com;
+       dkim=pass header.i=@examplebank.com; spf=pass; dmarc=pass
+Return-Path: <billing@examplebank.com>
+From: "Bank" <billing@examplebank.com>
+To: alex.doe@example.com
+Subject: Statement ready
+Message-ID: <s1@examplebank.com>
+Date: Mon, 02 Nov 2026 10:00:00 +0000
+MIME-Version: 1.0
+Content-Type: text/plain; charset="utf-8"
+
+Your statement is ready.

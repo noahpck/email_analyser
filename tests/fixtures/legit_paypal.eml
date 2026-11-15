@@ -1,0 +1,16 @@
+Delivered-To: alex.doe@example.com
+Authentication-Results: mx.google.com;
+       dkim=pass header.i=@paypal.com header.s=pp-dkim1 header.b=abc;
+       spf=pass (google.com: domain of bounce@mail.paypal.com designates 203.0.113.5 as permitted sender) smtp.mailfrom=bounce@mail.paypal.com;
+       dmarc=pass (p=REJECT sp=REJECT dis=NONE) header.from=paypal.com
+Return-Path: <bounce@mail.paypal.com>
+From: "PayPal" <service@paypal.com>
+To: alex.doe@example.com
+Subject: Your receipt from Example Store
+Message-ID: <receipt-42@paypal.com>
+Date: Mon, 02 Nov 2026 10:00:00 +0000
+MIME-Version: 1.0
+Content-Type: text/html; charset="utf-8"
+
+<p>You paid $12.00 to Example Store.</p>
+<a href="https://www.paypal.com/activity">paypal.com</a>

@@ -233,7 +233,8 @@ def score(e: Email) -> Result:
 
     # --- links ---
     for link in e.links:
-        href_dom = reg_domain(link.href)
+        # fall back to the bare host so links to raw IPs or fake TLDs are still compared
+        href_dom = reg_domain(link.href) or (_host(link.href) if "://" in link.href else "")
         if not href_dom or same_org(href_dom, from_dom) or href_dom in TRACKERS:
             continue
         m = DOMAIN_IN_TEXT.search(link.text)

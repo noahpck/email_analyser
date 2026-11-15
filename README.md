@@ -66,6 +66,14 @@ python backend/evaluate.py --all        # list every email with its reasons
 
 `evaluate.py` treats your labels as the truth. Emails you haven't labelled count as scam if they came from `samples/spam` and safe otherwise, so labelling Gmail's mistakes makes the numbers more accurate.
 
+## Tests
+
+```bash
+python -m unittest -v
+```
+
+The tests run the scorer on small hand-made emails in `tests/fixtures/`, such as a lookalike PayPal phish, the real PayPal, a scam newsletter and a draft. They also cover the helper functions. GitHub Actions runs them on every push. When you change the scorer, add a fixture for the case you're fixing.
+
 ## Layout
 
 | File | Purpose |
@@ -77,5 +85,6 @@ python backend/evaluate.py --all        # list every email with its reasons
 | `backend/score.py` | Phishing heuristics; an email is flagged at a score of 40 or more |
 | `backend/analyse.py` | Database helpers; run directly to re-score every sample |
 | `backend/evaluate.py` | Measures the scorer against your Safe/Scam labels |
+| `tests/` | Unit tests and `.eml` fixtures for the scorer |
 | `app.py` | Flask server: JSON API, trash/block endpoint and background sync, bound to localhost |
 | `static/` | Dashboard page (plain HTML, CSS and JS, no build step) |
