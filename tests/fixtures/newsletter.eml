@@ -1,0 +1,19 @@
+Delivered-To: alex.doe@example.com
+Authentication-Results: mx.google.com;
+       dkim=pass header.i=@sendgrid.info header.s=smtpapi header.b=abc;
+       dkim=pass header.i=@shop.example.co.nz header.s=s1 header.b=def;
+       spf=pass (google.com: domain of bounces@sendgrid.net designates 203.0.113.9 as permitted sender) smtp.mailfrom=bounces@sendgrid.net;
+       dmarc=pass (p=NONE sp=NONE dis=NONE) header.from=example.co.nz
+Return-Path: <bounces+123@sendgrid.net>
+From: "Example Shop" <news@shop.example.co.nz>
+Reply-To: support@example.zendesk.com
+To: alex.doe@example.com
+Subject: Re: your FREE voucher - limited time
+Message-ID: <x1y2z3@geopod-ismtpd-8>
+Date: Mon, 02 Nov 2026 10:00:00 +0000
+MIME-Version: 1.0
+Content-Type: text/html; charset="utf-8"
+
+<p>Our biggest sale is here. Free shipping for a limited time!</p>
+<a href="https://u123.ct.sendgrid.net/ls/click?upn=abc">example.co.nz</a>
+<a href="https://www.example.com/sale">Shop at example.com</a>
