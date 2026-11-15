@@ -79,8 +79,9 @@ def index():
 def emails():
     with db() as con:
         rows = con.execute(
-            "SELECT msg_id, source, subject, sender, from_name, date, score, flagged, reasons "
-            "FROM results WHERE msg_id NOT IN (SELECT msg_id FROM actions) ORDER BY score DESC"
+            "SELECT r.msg_id, source, subject, sender, from_name, date, score, flagged, reasons, "
+            "l.label FROM results r LEFT JOIN labels l USING (msg_id) "
+            "WHERE r.msg_id NOT IN (SELECT msg_id FROM actions) ORDER BY score DESC"
         ).fetchall()
     return jsonify([{**dict(r), "reasons": json.loads(r["reasons"])} for r in rows])
 
@@ -95,6 +96,22 @@ def sync_now():
     if not run_sync():
         return jsonify(sync_status), 409  # already running
     return jsonify(sync_status), 200 if not sync_status["last_error"] else 502
+
+
+@app.post("/api/emails/<msg_id>/label")
+def set_label(msg_id):
+    """Your verdict on an email: "safe", "scam", or null to clear it."""
+    label = request.get_json(silent=True, force=True).get("label")
+    if label not in ("safe", "scam", None):
+        abort(400)
+    with db() as con:
+        if not con.execute("SELECT 1 FROM results WHERE msg_id = ?", (msg_id,)).fetchone():
+            abort(404)
+        if label:
+            con.execute("INSERT OR REPLACE INTO labels VALUES (?, ?, datetime('now'))", (msg_id, label))
+        else:
+            con.execute("DELETE FROM labels WHERE msg_id = ?", (msg_id,))
+    return jsonify(ok=True, label=label)
 
 
 @app.post("/api/emails/<msg_id>/trash")

@@ -54,12 +54,17 @@ python backend/analyse.py          # re-score every sample (run after changing t
 In the dashboard, open an email to see its score breakdown, then:
 - **Move to trash** moves it to Gmail Trash, where it can be recovered for 30 days.
 - **Block sender & trash** also adds a Gmail filter that sends future mail from that address to Trash. Undo it in Gmail under Settings → Filters and Blocked Addresses.
+- **✓ Safe / ⚠ Scam** records your verdict. Use the label filter to find emails you haven't labelled yet.
 
 To check the scorer's accuracy after changing it:
 
 ```bash
-python backend/evaluate.py --show spam    # flag rate per folder, with reasons
+python backend/evaluate.py              # scams caught, false alarms, and the emails it gets wrong
+python backend/evaluate.py --labelled   # only count emails you've labelled
+python backend/evaluate.py --all        # list every email with its reasons
 ```
+
+`evaluate.py` treats your labels as the truth. Emails you haven't labelled count as scam if they came from `samples/spam` and safe otherwise, so labelling Gmail's mistakes makes the numbers more accurate.
 
 ## Layout
 
@@ -71,6 +76,6 @@ python backend/evaluate.py --show spam    # flag rate per folder, with reasons
 | `backend/parse.py` | Extracts headers, links, body text and attachments |
 | `backend/score.py` | Phishing heuristics; an email is flagged at a score of 40 or more |
 | `backend/analyse.py` | Database helpers; run directly to re-score every sample |
-| `backend/evaluate.py` | Reports how many emails in each folder get flagged |
+| `backend/evaluate.py` | Measures the scorer against your Safe/Scam labels |
 | `app.py` | Flask server: JSON API, trash/block endpoint and background sync, bound to localhost |
 | `static/` | Dashboard page (plain HTML, CSS and JS, no build step) |

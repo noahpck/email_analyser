@@ -37,6 +37,12 @@
     <section class="controls">
       <input id="search" type="search" placeholder="Search subject or sender…" aria-label="Search">
       <div id="sources" class="chips" role="group" aria-label="Sources"></div>
+      <select id="label-filter" aria-label="Label filter">
+        <option value="any">Any label</option>
+        <option value="none">Unlabelled</option>
+        <option value="safe">Marked safe</option>
+        <option value="scam">Marked scam</option>
+      </select>
       <label class="toggle">
         <input id="flagged-only" type="checkbox" checked>
         <span class="track"><span class="thumb"></span></span>
