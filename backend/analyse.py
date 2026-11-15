@@ -16,6 +16,8 @@ def connect():
         from_name TEXT, date TEXT, score INTEGER, flagged INTEGER, reasons TEXT)""")
     con.execute("CREATE TABLE IF NOT EXISTS actions (msg_id TEXT PRIMARY KEY, action TEXT, at TEXT)")
     con.execute("CREATE TABLE IF NOT EXISTS sync_state (key TEXT PRIMARY KEY, value TEXT)")
+    # your own verdicts, used by evaluate.py as ground truth
+    con.execute("CREATE TABLE IF NOT EXISTS labels (msg_id TEXT PRIMARY KEY, label TEXT, at TEXT)")
     return con
 
 

@@ -3,7 +3,7 @@ const FLAG_AT = 40; // keep in sync with backend/score.py
 const PALETTE = ["#6ea8fe", "#f2666b", "#4fc58b", "#f0b552", "#c39bf5"];
 const SVG = "http://www.w3.org/2000/svg";
 
-const state = { emails: [], sources: new Set(), picked: new Set(), flaggedOnly: true, query: "" };
+const state = { emails: [], sources: new Set(), picked: new Set(), flaggedOnly: true, query: "", label: "any" };
 const $ = (id) => document.getElementById(id);
 
 function el(tag, props = {}, ...children) {
@@ -94,6 +94,7 @@ function filtered() {
   return state.emails.filter((e) =>
     state.picked.has(e.source) &&
     (!state.flaggedOnly || e.flagged) &&
+    (state.label === "any" || (e.label || "none") === state.label) &&
     (!q || `${e.subject} ${e.sender} ${e.from_name}`.toLowerCase().includes(q)));
 }
 
@@ -207,15 +208,50 @@ function emailRow(e) {
     if (confirm(`Block ${e.sender}? Future emails from this address will go straight to Trash.`)) act(e, true, [trashBtn, blockBtn]);
   };
 
+  const pill = el("span", { className: "pill" });
+  const labelBtns = ["safe", "scam"].map((value) => {
+    const b = el("button", { className: `btn label-btn ${value}`, type: "button", textContent: value === "safe" ? "✓ Safe" : "⚠ Scam" });
+    b.onclick = () => setLabel(e, e.label === value ? null : value, labelBtns, pill);
+    return b;
+  });
+  paintLabel(e, labelBtns, pill);
+
   const row = el("details", {},
     el("summary", {},
       el("span", { className: `score ${level(e.score)}`, textContent: e.score }),
       el("div", { className: "summary-text" },
         el("div", { className: "subject", textContent: e.subject || "(no subject)" }),
-        el("div", { className: "sender", textContent: e.from_name ? `${e.from_name} · ${e.sender}` : e.sender }))),
-    el("div", { className: "body" }, meta, el("ul", { className: "reasons" }, ...reasons), el("div", { className: "actions" }, trashBtn, blockBtn)));
+        el("div", { className: "sender", textContent: e.from_name ? `${e.from_name} · ${e.sender}` : e.sender })),
+      pill),
+    el("div", { className: "body" }, meta, el("ul", { className: "reasons" }, ...reasons),
+      el("div", { className: "actions" },
+        el("div", { className: "label-group", role: "group", ariaLabel: "Your verdict" }, ...labelBtns),
+        el("span", { className: "spacer" }), trashBtn, blockBtn)));
   row.dataset.id = e.msg_id;
   return row;
+}
+
+function paintLabel(e, buttons, pill) {
+  buttons.forEach((b) => b.setAttribute("aria-pressed", b.classList.contains(e.label || "-")));
+  pill.className = `pill ${e.label || ""}`;
+  pill.textContent = e.label === "safe" ? "Safe" : e.label === "scam" ? "Scam" : "";
+  pill.hidden = !e.label;
+}
+
+async function setLabel(e, label, buttons, pill) {
+  const previous = e.label;
+  e.label = label;
+  paintLabel(e, buttons, pill); // optimistic; reverted on failure
+  try {
+    const res = await fetch(`/api/emails/${encodeURIComponent(e.msg_id)}/label`, {
+      method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ label }),
+    });
+    if (!res.ok) throw new Error(`HTTP ${res.status}`);
+  } catch (err) {
+    e.label = previous;
+    paintLabel(e, buttons, pill);
+    toast(`Couldn't save label: ${err.message}`, true);
+  }
 }
 
 async function act(e, block, buttons) {
@@ -238,6 +274,7 @@ async function act(e, block, buttons) {
 }
 
 $("search").addEventListener("input", (ev) => { state.query = ev.target.value; renderList(); });
+$("label-filter").addEventListener("change", (ev) => { state.label = ev.target.value; renderList(); });
 $("flagged-only").addEventListener("change", (ev) => { state.flaggedOnly = ev.target.checked; renderList(); });
 let resizeTimer;
 addEventListener("resize", () => { clearTimeout(resizeTimer); resizeTimer = setTimeout(renderChart, 150); });

@@ -83,8 +83,11 @@ details { background: var(--surface); border: 1px solid var(--border); border-ra
 details[open] { border-color: #34405a; }
 summary {
   list-style: none; cursor: pointer; padding: 12px 14px;
-  display: grid; grid-template-columns: auto 1fr; gap: 12px; align-items: center;
+  display: grid; grid-template-columns: auto 1fr auto; gap: 12px; align-items: center;
 }
+.pill { font-size: 0.75rem; font-weight: 600; border-radius: 999px; padding: 2px 9px; }
+.pill.safe { background: rgb(79 197 139 / 0.15); color: var(--ok); }
+.pill.scam { background: rgb(242 102 107 / 0.15); color: var(--danger); }
 summary::-webkit-details-marker { display: none; }
 summary:focus-visible { outline: 2px solid var(--accent); outline-offset: -2px; border-radius: var(--radius); }
 .score {
@@ -105,7 +108,19 @@ summary:focus-visible { outline: 2px solid var(--accent); outline-offset: -2px; 
 .reasons li { font-size: 0.88rem; display: flex; gap: 10px; }
 .reasons .pts { color: var(--danger); font-variant-numeric: tabular-nums; min-width: 34px; font-weight: 600; }
 .reasons .none { color: var(--muted); }
-.actions { display: flex; gap: 8px; flex-wrap: wrap; }
+.actions { display: flex; gap: 8px; flex-wrap: wrap; align-items: center; }
+.actions .spacer { flex: 1; }
+.label-group { display: inline-flex; }
+.label-group .btn { border-radius: 0; }
+.label-group .btn:first-child { border-radius: 8px 0 0 8px; }
+.label-group .btn:last-child { border-radius: 0 8px 8px 0; border-left: 0; }
+.label-btn.safe[aria-pressed="true"] { background: rgb(79 197 139 / 0.18); border-color: var(--ok); color: var(--ok); }
+.label-btn.scam[aria-pressed="true"] { background: rgb(242 102 107 / 0.18); border-color: var(--danger); color: var(--danger); }
+select {
+  background: var(--surface); color: var(--text); border: 1px solid var(--border);
+  border-radius: 8px; padding: 8px 10px; font: inherit; font-size: 0.88rem;
+}
+select:focus { outline: 2px solid var(--accent); outline-offset: -1px; }
 button.btn {
   font: inherit; font-size: 0.88rem; border-radius: 8px; padding: 7px 14px; cursor: pointer;
   border: 1px solid var(--border); background: var(--surface-2); color: var(--text);
