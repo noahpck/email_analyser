@@ -1,0 +1,51 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <meta name="color-scheme" content="dark">
+  <title>Email Analyser</title>
+  <link rel="stylesheet" href="/static/style.css">
+</head>
+<body>
+  <main>
+    <header>
+      <h1>Email Analyser</h1>
+      <p class="muted">Phishing and scam scores for your Gmail</p>
+    </header>
+
+    <section class="metrics">
+      <div class="metric"><span class="label">Analysed</span><span id="m-total" class="value">–</span></div>
+      <div class="metric"><span class="label">Flagged</span><span id="m-flagged" class="value danger">–</span></div>
+      <div class="metric"><span class="label">Avg score</span><span id="m-avg" class="value">–</span></div>
+    </section>
+
+    <section class="card">
+      <div class="card-head">
+        <h2>Score by date</h2>
+        <div id="legend" class="legend"></div>
+      </div>
+      <div id="chart" class="chart"></div>
+    </section>
+
+    <section class="controls">
+      <input id="search" type="search" placeholder="Search subject or sender…" aria-label="Search">
+      <div id="sources" class="chips" role="group" aria-label="Sources"></div>
+      <label class="toggle">
+        <input id="flagged-only" type="checkbox" checked>
+        <span class="track"><span class="thumb"></span></span>
+        Flagged only
+      </label>
+    </section>
+
+    <section>
+      <h2 id="list-title">Emails</h2>
+      <div id="list" class="list"><p class="muted">Loading…</p></div>
+    </section>
+  </main>
+
+  <div id="tooltip" class="tooltip" hidden></div>
+  <div id="toasts" class="toasts" aria-live="polite"></div>
+  <script src="/static/app.js"></script>
+</body>
+</html>
