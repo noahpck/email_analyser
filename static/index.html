@@ -10,8 +10,14 @@
 <body>
   <main>
     <header>
-      <h1>Email Analyser</h1>
-      <p class="muted">Phishing and scam scores for your Gmail</p>
+      <div>
+        <h1>Email Analyser</h1>
+        <p class="muted">Phishing and scam scores for your Gmail</p>
+      </div>
+      <div class="sync">
+        <span id="sync-status" class="muted">Checking sync…</span>
+        <button id="sync-now" class="btn" type="button">Sync now</button>
+      </div>
     </header>
 
     <section class="metrics">

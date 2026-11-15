@@ -36,7 +36,7 @@ def get_service():
                     + ". Sign in again and tick every permission checkbox."
                 )
         pathlib.Path("token.json").write_text(creds.to_json())
-    return build("gmail", "v1", credentials=creds)
+    return build("gmail", "v1", credentials=creds, cache_discovery=False)
 
 
 def trash_message(svc, msg_id):
