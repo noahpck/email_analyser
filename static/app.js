@@ -36,11 +36,58 @@ async function load() {
     $("list").replaceChildren(el("p", { className: "muted", textContent: `Couldn't load emails: ${err.message}. Run backend/analyse.py first?` }));
     return;
   }
+  const before = state.sources;
   state.sources = new Set(state.emails.map((e) => e.source).sort());
-  state.picked = new Set(state.sources);
+  for (const s of state.sources) if (!before.has(s)) state.picked.add(s); // keep the user's filter choices
   renderChips();
   render();
 }
+
+// --- sync status ---
+let lastSyncSeen = null;
+function ago(iso) {
+  const s = Math.round((Date.now() - Date.parse(iso)) / 1000);
+  if (s < 60) return "just now";
+  if (s < 3600) return `${Math.floor(s / 60)} min ago`;
+  return `${Math.floor(s / 3600)} h ago`;
+}
+function showStatus(st) {
+  const label = $("sync-status");
+  label.classList.toggle("error", !!st.last_error);
+  if (st.running) label.textContent = "Syncing…";
+  else if (st.last_error) label.textContent = `Sync failed: ${st.last_error}`;
+  else if (st.last_sync) label.textContent = `Synced ${ago(st.last_sync)}${st.interval_minutes ? ` · every ${st.interval_minutes} min` : ""}`;
+  else label.textContent = st.interval_minutes ? "Waiting for first sync…" : "Auto-sync off";
+  label.title = st.last_error || "";
+  $("sync-now").disabled = st.running;
+}
+async function pollStatus() {
+  try {
+    const st = await (await fetch("/api/status")).json();
+    showStatus(st);
+    if (st.last_sync && st.last_sync !== lastSyncSeen) {
+      if (lastSyncSeen !== null && st.last_new) { toast(`${st.last_new} new email${st.last_new > 1 ? "s" : ""} synced`); await load(); }
+      lastSyncSeen = st.last_sync;
+    }
+  } catch { /* server restarting; try again next tick */ }
+}
+$("sync-now").addEventListener("click", async () => {
+  showStatus({ running: true });
+  try {
+    const res = await fetch("/api/sync", { method: "POST", headers: { "Content-Type": "application/json" }, body: "{}" });
+    const st = await res.json();
+    showStatus(st);
+    if (res.status === 409) toast("A sync is already running");
+    else if (st.last_error) toast(`Sync failed: ${st.last_error}`, true);
+    else { toast(st.last_new ? `${st.last_new} new email${st.last_new > 1 ? "s" : ""}` : "Up to date"); await load(); }
+    lastSyncSeen = st.last_sync;
+  } catch (err) {
+    toast(err.message, true);
+    pollStatus();
+  }
+});
+setInterval(pollStatus, 20000);
+pollStatus();
 
 function filtered() {
   const q = state.query.toLowerCase();

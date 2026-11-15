@@ -34,10 +34,21 @@ The first Gmail call opens a browser to sign in. Tick **every** permission check
 Run everything from the project root:
 
 ```bash
-python backend/setup.py SPAM       # download up to 100 emails from a label into samples/spam/
-python backend/setup.py INBOX      # ...or samples/inbox/
-python backend/analyse.py          # score all samples into analyser.db
 python app.py                      # dashboard at http://localhost:8000
+```
+
+The app syncs your INBOX and SPAM every 5 minutes in the background. Use **Sync now** in the dashboard to sync straight away. The first sync downloads the latest 100 emails from each label. After that, Gmail's history API means each sync only fetches new mail. Emails you trash or delete in Gmail itself disappear from the dashboard too.
+
+Settings, as environment variables:
+- `SYNC_MINUTES=10` changes the interval; `0` turns background sync off.
+- `PORT=8010` serves the dashboard on a different port.
+
+Other commands:
+
+```bash
+python backend/sync.py             # one sync without the dashboard
+python backend/setup.py PROMOTIONS # download up to 100 emails from any label into samples/<label>/
+python backend/analyse.py          # re-score every sample (run after changing the scorer)
 ```
 
 In the dashboard, open an email to see its score breakdown, then:
@@ -55,10 +66,11 @@ python backend/evaluate.py --show spam    # flag rate per folder, with reasons
 | File | Purpose |
 | --- | --- |
 | `backend/gmail.py` | Gmail auth, trash and block-sender helpers |
-| `backend/setup.py` | Downloads raw `.eml` files from a Gmail label |
+| `backend/sync.py` | Incremental INBOX/SPAM sync using Gmail's history API |
+| `backend/setup.py` | Downloads raw `.eml` files from any Gmail label |
 | `backend/parse.py` | Extracts headers, links, body text and attachments |
 | `backend/score.py` | Phishing heuristics; an email is flagged at a score of 40 or more |
-| `backend/analyse.py` | Scores every sample and stores the results in SQLite |
+| `backend/analyse.py` | Database helpers; run directly to re-score every sample |
 | `backend/evaluate.py` | Reports how many emails in each folder get flagged |
-| `app.py` | Flask server: JSON API plus trash/block endpoint, bound to localhost |
+| `app.py` | Flask server: JSON API, trash/block endpoint and background sync, bound to localhost |
 | `static/` | Dashboard page (plain HTML, CSS and JS, no build step) |
