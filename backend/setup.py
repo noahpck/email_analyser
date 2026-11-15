@@ -19,9 +19,13 @@ def get_service():
         pathlib.Path("token.json").write_text(creds.to_json())
     return build("gmail", "v1", credentials=creds)
 
+import sys
+label = sys.argv[1] if len(sys.argv) > 1 else "SPAM"
+
 svc = get_service()
-resp = svc.users().messages().list(userId="me", labelIds=["SPAM"], maxResults=50).execute()
-out = pathlib.Path("samples"); out.mkdir(exist_ok=True)
+resp = svc.users().messages().list(userId="me", labelIds=[label], maxResults=50).execute()
+out = pathlib.Path("samples") / label.lower()
+out.mkdir(parents=True, exist_ok=True)
 for m in resp.get("messages", []):
     raw = svc.users().messages().get(userId="me", id=m["id"], format="raw").execute()["raw"]
     (out / f"{m['id']}.eml").write_bytes(base64.urlsafe_b64decode(raw))

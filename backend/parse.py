@@ -5,6 +5,7 @@ from email import policy
 from email.parser import BytesParser
 from email.utils import parseaddr
 from pathlib import Path
+from email.utils import parsedate_to_datetime
 
 from bs4 import BeautifulSoup
 
@@ -26,9 +27,16 @@ class Email:
     reply_to: str
     return_path: str
     auth_results: str
+    date: str
     links: list[Link] = field(default_factory=list)
     attachments: list[str] = field(default_factory=list)
 
+
+def _date(msg):
+    try:
+        return parsedate_to_datetime(str(msg.get("Date"))).isoformat()
+    except Exception:
+        return ""
 
 def _body(part):
     try:
@@ -66,6 +74,7 @@ def parse_eml(path):
         reply_to=parseaddr(str(msg.get("Reply-To", "")))[1].lower(),
         return_path=parseaddr(str(msg.get("Return-Path", "")))[1].lower(),
         auth_results=" ".join(str(h) for h in msg.get_all("Authentication-Results", [])),
+        date=_date(msg),
         links=links,
         attachments=attachments,
     )
