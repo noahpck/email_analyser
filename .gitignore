@@ -27,3 +27,6 @@ venv/
 
 # Downloaded emails (personal data)
 samples/
+
+# Claude Code local settings and skills
+.claude/

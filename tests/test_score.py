@@ -1,11 +1,13 @@
 """Scorer tests. Run from the project root: python -m unittest -v"""
+import re
 import sys
+import tempfile
 import unittest
 from pathlib import Path
 
 sys.path.insert(0, str(Path(__file__).resolve().parent.parent / "backend"))
 
-from parse import parse_eml  # noqa: E402
+from parse import Link, parse_eml  # noqa: E402
 from score import (FLAG_AT, claimed_brand, looks_random, reg_domain,  # noqa: E402
                    same_org, score)
 
@@ -72,6 +74,28 @@ class ScoreFixtures(unittest.TestCase):
         e, r = run("attachment.eml")
         self.assertEqual(e.attachments, ["invoice.pdf.exe"])
         self.assertReason(r, "+40 risky attachment invoice.pdf.exe")
+
+
+    def test_archive_does_not_hide_dangerous_attachment(self):
+        e, _ = run("legit_paypal.eml")
+        e.attachments = ["photos.zip", "invoice.pdf.exe"]
+        self.assertReason(score(e), "+40 risky attachment invoice.pdf.exe")
+
+    def test_attachment_named_only_in_content_type(self):
+        # no Content-Disposition header, just Content-Type: ...; name="..."
+        raw = (FIXTURES / "attachment.eml").read_text()
+        raw = re.sub(r"(?im)^Content-Disposition:.*\n", "", raw)
+        with tempfile.TemporaryDirectory() as tmp:
+            path = Path(tmp) / "x.eml"
+            path.write_text(raw)
+            self.assertEqual(parse_eml(path).attachments, ["invoice.pdf.exe"])
+
+    def test_malformed_link_does_not_crash(self):
+        # urlparse raises on hosts like this; one such email used to stall every sync
+        e, _ = run("legit_paypal.eml")
+        e.links.append(Link("http://[::1zz]/x", "paypal.com"))
+        e.links.append(Link("http://[::1/unclosed", "click"))
+        score(e)  # must not raise
 
 
 class Helpers(unittest.TestCase):

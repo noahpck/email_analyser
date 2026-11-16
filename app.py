@@ -2,7 +2,6 @@ import atexit
 import json
 import logging
 import os
-import re
 import sqlite3
 import sys
 import tempfile
@@ -22,13 +21,14 @@ from gmail import (SAFE_ADDRESS, block_sender, get_service, list_blocks, trash_m
                    unblock_sender, untrash_message)
 from parse import parse_eml  # noqa: E402
 from score import (DOMAIN_IN_TEXT, FLAG_AT, FREE_HOSTING, TRACKERS, auth_result,  # noqa: E402
-                   reg_domain, same_org)
+                   is_ip, lookalike_brand, reg_domain, same_org, url_host)
 
 ROOT = Path(__file__).parent
 # DEMO=1: public read-only demo on the fictional emails in demo/samples; no Gmail access
 DEMO = os.environ.get("DEMO") == "1"
 SYNC_MINUTES = 0 if DEMO else float(os.environ.get("SYNC_MINUTES", 5))  # 0 disables sync
 REPO_URL = os.environ.get("REPO_URL", "")
+KEEP_DAYS = 90  # the dashboard shows this much mail (flagged mail always), so it stays fast
 log = logging.getLogger("email_analyser")
 logging.basicConfig(level=logging.INFO, format="%(asctime)s %(levelname)s %(message)s")
 app = Flask(__name__, static_folder="static", static_url_path="/static")
@@ -46,8 +46,8 @@ if DEMO:
     log.info("demo mode: scored %d sample emails", len(list(analyse.SAMPLES.glob("*/*.eml"))))
 
 _sync_lock = threading.Lock()
-sync_status = {"last_sync": None, "last_new": 0, "last_error": None, "running": False,
-               "interval_minutes": SYNC_MINUTES}
+sync_status = {"last_sync": None, "last_new": 0, "last_removed": 0, "last_error": None,
+               "running": False, "interval_minutes": SYNC_MINUTES}
 
 
 def db():
@@ -64,7 +64,7 @@ def run_sync():
     try:
         # fresh client per run: googleapiclient objects aren't thread-safe
         result = gmail_sync.sync(get_service())
-        sync_status.update(last_new=result["new"], last_error=None)
+        sync_status.update(last_new=result["new"], last_removed=result["removed"], last_error=None)
         if result["new"] or result["removed"]:
             log.info("sync: %d new, %d removed in Gmail", result["new"], result["removed"])
     except Exception as err:
@@ -121,29 +121,35 @@ def index():
 
 @app.get("/api/emails")
 def emails():
+    # the demo's fixed sample emails would age out, so it shows everything
+    recent = "" if DEMO else (f"AND (flagged OR date = '' OR date >= date('now', '-{KEEP_DAYS} days')) ")
     with db() as con:
         rows = con.execute(
             "SELECT r.msg_id, source, subject, sender, from_name, date, score, flagged, reasons, "
             "l.label FROM results r LEFT JOIN labels l USING (msg_id) "
-            "WHERE r.msg_id NOT IN (SELECT msg_id FROM actions) ORDER BY score DESC"
+            "WHERE r.msg_id NOT IN (SELECT msg_id FROM actions) " + recent + "ORDER BY score DESC"
         ).fetchall()
     return jsonify([{**dict(r), "reasons": json.loads(r["reasons"])} for r in rows])
 
 
 def describe_link(link, from_dom):
-    """Where a link really goes, and why it might be misleading."""
-    host = (urlparse(link.href).hostname or "") if "://" in link.href else ""
+    """Where a link really goes, and why it might be misleading (same rules as the scorer)."""
+    host = url_host(link.href) if "://" in link.href else ""
     dom = reg_domain(link.href) or host
     warning = None
     shown = DOMAIN_IN_TEXT.search(link.text or "")
     shown_dom = reg_domain(shown.group(1)) if shown else ""
-    if host and FREE_HOSTING.search(host):
+    if brand := lookalike_brand(reg_domain(link.href)):
+        warning = f"lookalike of {brand}"
+    elif host and FREE_HOSTING.search(host):
         warning = "free file hosting"
-    elif host and re.fullmatch(r"[\d.]+|\[[\da-f:]+\]", host):
+    elif host and is_ip(host):
         warning = "raw IP address"
-    elif shown_dom and dom and not same_org(shown_dom, dom) and dom not in TRACKERS:
+    elif dom in TRACKERS or (from_dom and same_org(dom, from_dom)):
+        pass  # click trackers and the sender's own site are normal (same rule as the scorer)
+    elif shown_dom and dom and not same_org(shown_dom, dom):
         warning = f"text says {shown_dom}"
-    elif dom and dom not in TRACKERS and not (from_dom and same_org(dom, from_dom)):
+    elif dom:
         warning = "different site from sender"
     return {"text": (link.text or "")[:200], "href": link.href[:500], "host": host or link.href[:60],
             "warning": warning}
@@ -210,26 +216,25 @@ def trash(msg_id):
     block = bool(request.get_json(silent=True, force=True).get("block"))
     with db() as con:
         row = con.execute("SELECT sender FROM results WHERE msg_id = ?", (msg_id,)).fetchone()
-        if not row:
-            abort(404)
-        if block and not SAFE_ADDRESS.fullmatch(row["sender"] or ""):
-            return jsonify(error=f"Can't block {row['sender']!r}: not a plain email address. "
-                                 "Use Move to trash instead."), 400
-        try:
-            svc = get_service()
-            trash_message(svc, msg_id)
-            if block:
-                block_sender(svc, row["sender"])
-        except HttpError as err:
-            return jsonify(error=f"Gmail error: {err.reason}"), 502
-        except Exception as err:  # e.g. sign-in failed or missing permissions
-            return jsonify(error=str(err)), 500
-        con.execute(
-            "INSERT OR REPLACE INTO actions VALUES (?, ?, datetime('now'))",
-            (msg_id, "blocked" if block else "trashed"),
-        )
-    return jsonify(ok=True, sender=row["sender"], blocked=block)
+    if not row:
+        abort(404)
+    if block and not SAFE_ADDRESS.fullmatch(row["sender"] or ""):
+        return jsonify(error=f"Can't block {row['sender']!r}: not a plain email address. "
+                             "Use Move to trash instead."), 400
 
+    def remove():
+        svc = get_service()
+        if block:  # block first: if it fails, nothing has been trashed yet
+            block_sender(svc, row["sender"])
+        trash_message(svc, msg_id)
+
+    _, error = gmail_errors(remove)
+    if error:
+        return error
+    with db() as con:
+        con.execute("INSERT OR REPLACE INTO actions VALUES (?, ?, datetime('now'))",
+                    (msg_id, "blocked" if block else "trashed"))
+    return jsonify(ok=True, sender=row["sender"], blocked=block)
 
 
 def gmail_errors(fn):

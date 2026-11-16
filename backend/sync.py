@@ -4,6 +4,7 @@ Uses Gmail's history API, so after the first run each sync only fetches what cha
 Usage (from the project root): python backend/sync.py
 """
 import base64
+import logging
 
 from googleapiclient.errors import HttpError
 
@@ -12,6 +13,7 @@ from gmail import get_service
 
 LABELS = ("SPAM", "INBOX")  # SPAM first: if a message somehow has both, treat it as spam
 FIRST_SYNC_MAX = 100  # per label, on the first run or after history expires
+log = logging.getLogger(__name__)
 
 
 def _get_state(con, key):
@@ -39,11 +41,11 @@ def _recent(svc):
 
 
 def _changes_since(svc, start):
-    """Messages added to INBOX/SPAM, and messages trashed or deleted, since `start`."""
-    added, removed, latest = {}, set(), start
+    """Messages added to INBOX/SPAM, trashed or deleted, and taken out of Trash, since `start`."""
+    added, removed, restored, latest = {}, set(), set(), start
     history = svc.users().history()
     req = history.list(userId="me", startHistoryId=start,
-                       historyTypes=["messageAdded", "labelAdded", "messageDeleted"])
+                       historyTypes=["messageAdded", "labelAdded", "labelRemoved", "messageDeleted"])
     while req is not None:
         resp = req.execute()
         latest = resp.get("historyId", latest)
@@ -52,13 +54,19 @@ def _changes_since(svc, start):
                 m = item["message"]
                 if label := _label_of(m.get("labelIds", [])):
                     added[m["id"]] = label
+            # events come oldest first, so a later restore cancels an earlier trash
             for item in h.get("labelsAdded", []):
                 if "TRASH" in item.get("labelIds", []):
                     removed.add(item["message"]["id"])
+                    restored.discard(item["message"]["id"])
+            for item in h.get("labelsRemoved", []):
+                if "TRASH" in item.get("labelIds", []):
+                    removed.discard(item["message"]["id"])
+                    restored.add(item["message"]["id"])
             for item in h.get("messagesDeleted", []):
                 removed.add(item["message"]["id"])
         req = history.list_next(req, resp)
-    return added, removed, latest
+    return added, removed, restored, latest
 
 
 def sync(svc=None):
@@ -67,10 +75,10 @@ def sync(svc=None):
     con = connect()
     try:
         start = _get_state(con, "history_id")
-        added, removed = {}, set()
+        added, removed, restored = {}, set(), set()
         if start:
             try:
-                added, removed, latest = _changes_since(svc, start)
+                added, removed, restored, latest = _changes_since(svc, start)
             except HttpError as err:
                 if err.resp.status != 404:
                     raise
@@ -95,7 +103,13 @@ def sync(svc=None):
             folder.mkdir(parents=True, exist_ok=True)
             path = folder / f"{msg_id}.eml"
             path.write_bytes(base64.urlsafe_b64decode(raw))
-            store(con, path, folder.name)
+            try:
+                store(con, path, folder.name)
+            except Exception:  # one odd email must not block every future sync
+                log.exception("couldn't score %s; skipped", path)
+                path.unlink(missing_ok=True)  # or analyse.py / evaluate.py trip over it
+                continue
+            con.commit()  # commit each email: a long first sync mustn't lock out the dashboard
             new += 1
 
         # hide emails you trashed or deleted in Gmail itself
@@ -103,6 +117,8 @@ def sync(svc=None):
         con.executemany(
             "INSERT OR IGNORE INTO actions VALUES (?, 'removed_in_gmail', datetime('now'))",
             [(m,) for m in gone])
+        # show them again if they came back out of Trash (in Gmail, or a restore racing a sync)
+        con.executemany("DELETE FROM actions WHERE msg_id = ?", [(m,) for m in restored])
         _set_state(con, "history_id", latest)
         con.commit()
         return {"new": new, "removed": len(gone)}
