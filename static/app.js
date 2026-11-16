@@ -2,7 +2,6 @@
 let FLAG_AT = 40; // replaced by the server's value from /api/config
 let DEMO = false;
 const DEMO_LABELS_KEY = "demo-labels";
-const PALETTE = ["#6ea8fe", "#f2666b", "#4fc58b", "#f0b552", "#c39bf5"];
 const SVG = "http://www.w3.org/2000/svg";
 
 const state = { emails: [], sources: new Set(), picked: new Set(), flaggedOnly: true, query: "", label: "any" };
@@ -19,8 +18,13 @@ function svg(tag, attrs = {}) {
   for (const [k, v] of Object.entries(attrs)) node.setAttribute(k, v);
   return node;
 }
-const colorFor = (source) => PALETTE[[...state.sources].indexOf(source) % PALETTE.length];
+// series colours come from the stylesheet so they follow light/dark mode
+const colorFor = (source) => {
+  const i = [...state.sources].indexOf(source) % 3 + 1;
+  return getComputedStyle(document.documentElement).getPropertyValue(`--series-${i}`).trim();
+};
 const level = (score) => (score >= FLAG_AT ? "high" : score >= FLAG_AT / 2 ? "mid" : "low");
+const shortDate = (d) => (d ? new Date(d).toLocaleDateString(undefined, { day: "numeric", month: "short" }) : "");
 const fmtDate = (d) => (d ? new Date(d).toLocaleString(undefined, { dateStyle: "medium", timeStyle: "short" }) : "–");
 
 function toast(message, isError = false) {
@@ -63,7 +67,7 @@ function showStatus(st) {
   label.classList.toggle("error", !!st.last_error);
   if (st.running) label.textContent = "Syncing…";
   else if (st.last_error) label.textContent = `Sync failed: ${st.last_error}`;
-  else if (st.last_sync) label.textContent = `Synced ${ago(st.last_sync)}${st.interval_minutes ? ` · every ${st.interval_minutes} min` : ""}`;
+  else if (st.last_sync) label.textContent = `Synced ${ago(st.last_sync)}${st.interval_minutes ? `, checks every ${st.interval_minutes} min` : ""}`;
   else label.textContent = st.interval_minutes ? "Waiting for first sync…" : "Auto-sync off";
   label.title = st.last_error || "";
   $("sync-now").disabled = st.running;
@@ -110,9 +114,15 @@ function filtered() {
 
 function render() {
   const all = state.emails;
-  $("m-total").textContent = all.length;
-  $("m-flagged").textContent = all.filter((e) => e.flagged).length;
-  $("m-avg").textContent = all.length ? (all.reduce((s, e) => s + e.score, 0) / all.length).toFixed(1) : "0";
+  const flagged = all.filter((e) => e.flagged).length;
+  const head = $("headline");
+  if (!all.length) head.textContent = "No emails analysed yet";
+  else if (!flagged) head.textContent = `None of your ${all.length} emails look like phishing`;
+  else head.textContent = `${flagged} of ${all.length} email${all.length > 1 ? "s" : ""} ${flagged > 1 ? "look" : "looks"} like phishing`;
+  const avg = all.length ? (all.reduce((s, e) => s + e.score, 0) / all.length).toFixed(1) : 0;
+  $("subline").textContent = all.length
+    ? `Emails scoring ${FLAG_AT} or more are flagged. Your average score is ${avg}. Open an email to see what it scored and why.`
+    : DEMO ? "" : "Run a sync to download and score your mail.";
   renderChart();
   renderList();
 }
@@ -163,16 +173,18 @@ function renderChart() {
     label.textContent = new Date(t).toLocaleDateString(undefined, { day: "numeric", month: "short" });
     axis.append(label);
   }
-  root.append(grid, axis, svg("line", { class: "threshold", x1: m.l, x2: W - m.r, y1: y(FLAG_AT), y2: y(FLAG_AT) }));
+  const zone = svg("rect", { class: "zone", x: m.l, y: m.t, width: W - m.l - m.r, height: Math.max(0, y(FLAG_AT) - m.t) });
+  root.append(zone, grid, axis, svg("line", { class: "baseline", x1: m.l, x2: W - m.r, y1: y(0), y2: y(0) }),
+    svg("line", { class: "threshold", x1: m.l, x2: W - m.r, y1: y(FLAG_AT), y2: y(FLAG_AT) }));
   const tl = svg("text", { class: "threshold-label", x: W - m.r, y: y(FLAG_AT) - 5, "text-anchor": "end" });
-  tl.textContent = `flag at ${FLAG_AT}`;
+  tl.textContent = `Flagged at ${FLAG_AT}+`;
   root.append(tl);
 
   const tip = $("tooltip");
   for (const p of points.sort((a, b) => a.score - b.score)) {
     const c = svg("circle", { cx: x(p.t), cy: y(p.score), r: 4.5, fill: colorFor(p.source) });
     c.addEventListener("mousemove", (ev) => {
-      tip.replaceChildren(el("b", { textContent: `${p.score} · ${p.source}` }), el("div", { textContent: p.subject || "(no subject)" }),
+      tip.replaceChildren(el("b", { textContent: `Score ${p.score}, ${p.source}` }), el("div", { textContent: p.subject || "(no subject)" }),
         el("div", { className: "muted", textContent: p.sender }));
       tip.hidden = false;
       tip.style.left = Math.min(ev.clientX + 14, innerWidth - tip.offsetWidth - 8) + "px";
@@ -181,7 +193,7 @@ function renderChart() {
     c.addEventListener("mouseleave", () => (tip.hidden = true));
     c.addEventListener("click", () => {
       const row = document.querySelector(`details[data-id="${CSS.escape(p.msg_id)}"]`);
-      if (row) { row.open = true; row.scrollIntoView({ behavior: "smooth", block: "center" }); }
+      if (row) { row.open = true; row.scrollIntoView({ behavior: matchMedia("(prefers-reduced-motion: reduce)").matches ? "auto" : "smooth", block: "center" }); }
     });
     root.append(c);
   }
@@ -190,7 +202,7 @@ function renderChart() {
 
 function renderList() {
   const rows = filtered();
-  $("list-title").textContent = `Emails (${rows.length})`;
+  $("list-title").textContent = `${rows.length} ${state.flaggedOnly ? "flagged " : ""}email${rows.length === 1 ? "" : "s"}, highest score first`;
   if (!rows.length) {
     $("list").replaceChildren(el("p", { className: "muted", textContent: "No emails match these filters." }));
     return;
@@ -199,12 +211,19 @@ function renderList() {
 }
 
 function emailRow(e) {
+  // every warning sign adds points; together they make the score
   const reasons = e.reasons.length
     ? e.reasons.map((r) => {
         const [pts, ...rest] = r.split(" ");
-        return el("li", {}, el("span", { className: "pts", textContent: pts }), el("span", { textContent: rest.join(" ") }));
+        return el("li", {}, el("span", { className: "why", textContent: rest.join(" ") }), el("span", { className: "lead" }),
+          el("span", { className: "pts", textContent: pts }));
       })
     : [el("li", { className: "none", textContent: "No warning signs found." })];
+  const tally = el("div", {},
+    el("h3", { textContent: "Warning signs" }),
+    el("ol", { className: "tally" }, ...reasons),
+    el("div", { className: "tally-total" }, el("b", { textContent: "Score" }), el("span", { className: `sum ${level(e.score)}`, textContent: e.score })),
+    el("p", { className: "tally-note", textContent: e.flagged ? `Flagged: ${FLAG_AT} or more counts as suspicious.` : `Not flagged: below ${FLAG_AT}.` }));
 
   const meta = el("dl", { className: "meta" });
   for (const [k, v] of [["From", `${e.from_name} <${e.sender}>`], ["Date", fmtDate(e.date)], ["Source", e.source]]) {
@@ -227,23 +246,27 @@ function emailRow(e) {
   paintLabel(e, labelBtns, pill);
 
   const detailBox = el("div", { className: "detail" });
+  const headerBox = el("div", { className: "detail" });
   const row = el("details", {},
     el("summary", {},
       el("span", { className: `score ${level(e.score)}`, textContent: e.score }),
       el("div", { className: "summary-text" },
         el("div", { className: "subject", textContent: e.subject || "(no subject)" }),
-        el("div", { className: "sender", textContent: e.from_name ? `${e.from_name} · ${e.sender}` : e.sender })),
-      pill),
-    el("div", { className: "body" }, meta, el("ul", { className: "reasons" }, ...reasons), detailBox,
+        el("div", { className: "sender" }, e.from_name ? el("span", { className: "name", textContent: e.from_name }) : "",
+          el("span", { textContent: e.sender }))),
+      pill,
+      el("span", { className: "when", textContent: shortDate(e.date) })),
+    el("div", { className: "body" },
+      el("div", { className: "body-grid" }, tally, el("div", {}, el("h3", { textContent: "Sender" }), meta, headerBox)), detailBox,
       el("div", { className: "actions" },
         el("div", { className: "label-group", role: "group", ariaLabel: "Your verdict" }, ...labelBtns),
         el("span", { className: "spacer" }), ...(DEMO ? [] : [trashBtn, blockBtn]))));
   row.dataset.id = e.msg_id;
-  row.addEventListener("toggle", () => { if (row.open && !detailBox.dataset.loaded) loadDetail(e, detailBox); });
+  row.addEventListener("toggle", () => { if (row.open && !detailBox.dataset.loaded) loadDetail(e, detailBox, headerBox); });
   return row;
 }
 
-async function loadDetail(e, box) {
+async function loadDetail(e, box, headerBox) {
   box.dataset.loaded = "1";
   box.replaceChildren(el("p", { className: "muted", textContent: "Loading message…" }));
   let d;
@@ -256,7 +279,7 @@ async function loadDetail(e, box) {
     box.replaceChildren(el("p", { className: "muted", textContent: `Couldn't load message: ${err.message}` }));
     return;
   }
-  const parts = [];
+  const parts = [], head = [];
 
   // authentication
   const auth = el("div", { className: "auth" });
@@ -269,13 +292,14 @@ async function loadDetail(e, box) {
   } else {
     auth.append(el("span", { className: "auth-item neutral", textContent: "No Gmail auth results (draft or self-sent)" }));
   }
-  parts.push(auth);
+  head.push(el("h3", { textContent: "Sender checks" }), auth);
 
   const extra = el("dl", { className: "meta" });
   for (const [k, v] of [["Reply-To", d.reply_to], ["Return-Path", d.return_path], ["Attachments", d.attachments.join(", ")]]) {
     if (v) extra.append(el("dt", { textContent: k }), el("dd", { textContent: v }));
   }
-  if (extra.children.length) parts.push(extra);
+  if (extra.children.length) head.push(extra);
+  headerBox.replaceChildren(...head);
 
   // message body (plain text only, never rendered as HTML)
   parts.push(el("h3", { textContent: "Message" }),
@@ -284,7 +308,7 @@ async function loadDetail(e, box) {
   // links
   if (d.links.length) {
     const warned = d.links.filter((l) => l.warning).length;
-    parts.push(el("h3", { textContent: `Links (${d.link_count}${warned ? ` · ${warned} suspicious` : ""})` }));
+    parts.push(el("h3", { textContent: `${d.link_count} link${d.link_count === 1 ? "" : "s"}${warned ? `, ${warned} suspicious` : ""}. Links can\u2019t be opened from here.` }));
     const ul = el("ul", { className: "links" });
     for (const l of [...d.links].sort((a, b) => !!b.warning - !!a.warning)) {
       const li = el("li", { className: l.warning ? "warn" : "" },
@@ -392,7 +416,7 @@ async function loadHistory() {
       el("span", { className: `badge ${h.action}`, textContent: ACTION_LABELS[h.action] || h.action }),
       el("div", { className: "row-main" },
         el("div", { className: "subject", textContent: h.subject || "(no subject)" }),
-        el("div", { className: "sender", textContent: `${h.sender || "unknown sender"} · ${h.at ? ago(h.at.replace(" ", "T") + "Z") : ""}` })),
+        el("div", { className: "sender", textContent: `${h.sender || "unknown sender"}${h.at ? `, ${ago(h.at.replace(" ", "T") + "Z")}` : ""}` })),
       btn);
   }));
 }
@@ -427,6 +451,7 @@ $("label-filter").addEventListener("change", (ev) => { state.label = ev.target.v
 $("flagged-only").addEventListener("change", (ev) => { state.flaggedOnly = ev.target.checked; renderList(); });
 let resizeTimer;
 addEventListener("resize", () => { clearTimeout(resizeTimer); resizeTimer = setTimeout(renderChart, 150); });
+matchMedia("(prefers-color-scheme: dark)").addEventListener("change", () => { renderChips(); renderChart(); });
 async function init() {
   try {
     const cfg = await getJSON("/api/config");
