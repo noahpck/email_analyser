@@ -5,8 +5,9 @@ from pathlib import Path
 from parse import parse_eml
 from score import FLAG_AT, score
 
-DB = "analyser.db"
-SAMPLES = Path("samples")
+ROOT = Path(__file__).resolve().parent.parent  # paths work from any working folder
+DB = str(ROOT / "analyser.db")
+SAMPLES = ROOT / "samples"
 
 
 def connect():

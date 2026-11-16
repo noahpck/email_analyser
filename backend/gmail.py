@@ -1,6 +1,6 @@
 import os
-import pathlib
 import re
+from pathlib import Path
 
 from google.auth.transport.requests import Request
 from google.oauth2.credentials import Credentials
@@ -9,6 +9,8 @@ from googleapiclient.discovery import build
 from googleapiclient.errors import HttpError
 
 # modify: read + move to trash. settings.basic: create filters (block sender).
+ROOT = Path(__file__).resolve().parent.parent  # paths work from any working folder
+TOKEN, CREDENTIALS = ROOT / "token.json", ROOT / "credentials.json"
 SCOPES = [
     "https://www.googleapis.com/auth/gmail.modify",
     "https://www.googleapis.com/auth/gmail.settings.basic",
@@ -17,8 +19,8 @@ SCOPES = [
 
 def get_service():
     creds = None
-    if os.path.exists("token.json"):
-        creds = Credentials.from_authorized_user_file("token.json")
+    if TOKEN.exists():
+        creds = Credentials.from_authorized_user_file(str(TOKEN))
         if not creds.has_scopes(SCOPES):  # old read-only token: re-consent
             creds = None
     if not creds or not creds.valid:
@@ -28,7 +30,7 @@ def get_service():
             # Google may return extra previously-granted scopes (e.g. gmail.readonly),
             # which oauthlib treats as an error by default. Allow it, then check below.
             os.environ["OAUTHLIB_RELAX_TOKEN_SCOPE"] = "1"
-            flow = InstalledAppFlow.from_client_secrets_file("credentials.json", SCOPES)
+            flow = InstalledAppFlow.from_client_secrets_file(str(CREDENTIALS), SCOPES)
             creds = flow.run_local_server(port=0)
             missing = set(SCOPES) - set(creds.granted_scopes or [])
             if missing:
@@ -36,10 +38,9 @@ def get_service():
                     "Google sign-in didn't grant: " + ", ".join(sorted(missing))
                     + ". Sign in again and tick every permission checkbox."
                 )
-        token = pathlib.Path("token.json")
-        token.touch(mode=0o600, exist_ok=True)
-        token.chmod(0o600)  # it grants access to your mailbox: owner-only
-        token.write_text(creds.to_json())
+        TOKEN.touch(mode=0o600, exist_ok=True)
+        TOKEN.chmod(0o600)  # it grants access to your mailbox: owner-only
+        TOKEN.write_text(creds.to_json())
     return build("gmail", "v1", credentials=creds, cache_discovery=False)
 
 

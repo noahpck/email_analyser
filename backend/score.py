@@ -98,15 +98,27 @@ def url_host(url):
         return ""
 
 
+def is_ip(host):
+    try:
+        ip_address(host.strip("[]"))
+        return True
+    except ValueError:
+        return False
+
+
 def _host(value):
     if "://" in value:
         return url_host(value)
     return value.rsplit("@", 1)[-1].lower()
 
 
+# the suffix list bundled with tldextract: no download, and scores don't change over time
+_extract = tldextract.TLDExtract(suffix_list_urls=())
+
+
 def reg_domain(value):
     """'x@mail.paypal.com' or 'https://mail.paypal.com/a' -> 'paypal.com'"""
-    ext = tldextract.extract(_host(value))
+    ext = _extract(_host(value))
     return f"{ext.domain}.{ext.suffix}".lower() if ext.domain and ext.suffix else ""
 
 
@@ -256,26 +268,20 @@ def score(e: Email) -> Result:
     hosts = {url_host(l.href) for l in e.links if "://" in l.href}
     if hosted := sorted(h for h in hosts if FREE_HOSTING.search(h)):
         r.add(25, f"links to free file hosting ({hosted[0]})")
-    for h in hosts:
-        try:
-            ip_address(h.strip("[]"))
-        except ValueError:
-            continue
-        r.add(25, f"link goes to a raw IP address ({h})")
-        break
+    if ips := sorted(h for h in hosts if is_ip(h)):
+        r.add(25, f"link goes to a raw IP address ({ips[0]})")
     if any(re.match(r"[a-z][a-z0-9+.-]*://[^/?#]*@", l.href, re.I) for l in e.links):
         r.add(25, "link hides its real destination with user@host")
 
     # --- attachments ---
-    for fname in e.attachments:
-        parts = fname.lower().rsplit(".", 2)
-        if len(parts) > 1 and parts[-1] in DANGEROUS_EXT:
-            double = len(parts) == 3 and len(parts[1]) <= 4  # invoice.pdf.exe
-            r.add(40 if double else 25, f"risky attachment {fname}")
-            break
-        if len(parts) > 1 and parts[-1] in ARCHIVE_EXT:
-            r.add(10, f"archive attachment {fname}")
-            break
+    # check every attachment for danger first: a harmless zip mustn't hide an .exe after it
+    split = [(fname, fname.lower().rsplit(".", 2)) for fname in e.attachments]
+    if risky := [(f, p) for f, p in split if len(p) > 1 and p[-1] in DANGEROUS_EXT]:
+        fname, parts = risky[0]
+        double = len(parts) == 3 and len(parts[1]) <= 4  # invoice.pdf.exe
+        r.add(40 if double else 25, f"risky attachment {fname}")
+    elif archive := [f for f, p in split if len(p) > 1 and p[-1] in ARCHIVE_EXT]:
+        r.add(10, f"archive attachment {archive[0]}")
 
     return r
 

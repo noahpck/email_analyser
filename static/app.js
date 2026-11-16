@@ -73,7 +73,8 @@ async function pollStatus() {
     const st = await (await fetch("/api/status")).json();
     showStatus(st);
     if (st.last_sync && st.last_sync !== lastSyncSeen) {
-      if (lastSyncSeen !== null && st.last_new) { toast(`${st.last_new} new email${st.last_new > 1 ? "s" : ""} synced`); await load(); }
+      if (lastSyncSeen !== null && st.last_new) toast(`${st.last_new} new email${st.last_new > 1 ? "s" : ""} synced`);
+      if (lastSyncSeen !== null && (st.last_new || st.last_removed)) await load();
       lastSyncSeen = st.last_sync;
     }
   } catch { /* server restarting; try again next tick */ }
@@ -322,10 +323,7 @@ async function setLabel(e, label, buttons, pill) {
     return;
   }
   try {
-    const res = await fetch(`/api/emails/${encodeURIComponent(e.msg_id)}/label`, {
-      method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ label }),
-    });
-    if (!res.ok) throw new Error(`HTTP ${res.status}`);
+    await postJSON(`/api/emails/${encodeURIComponent(e.msg_id)}/label`, { label });
   } catch (err) {
     e.label = previous;
     paintLabel(e, buttons, pill);
@@ -336,13 +334,7 @@ async function setLabel(e, label, buttons, pill) {
 async function act(e, block, buttons) {
   buttons.forEach((b) => (b.disabled = true));
   try {
-    const res = await fetch(`/api/emails/${encodeURIComponent(e.msg_id)}/trash`, {
-      method: "POST",
-      headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ block }),
-    });
-    const data = await res.json().catch(() => ({}));
-    if (!res.ok) throw new Error(data.error || `HTTP ${res.status}`);
+    await postJSON(`/api/emails/${encodeURIComponent(e.msg_id)}/trash`, { block });
     state.emails = state.emails.filter((x) => x.msg_id !== e.msg_id);
     render();
     toast(block ? `Moved to trash and blocked ${e.sender}` : "Moved to trash");
