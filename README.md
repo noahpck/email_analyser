@@ -51,7 +51,7 @@ python backend/setup.py PROMOTIONS # download up to 100 emails from any label in
 python backend/analyse.py          # re-score every sample (run after changing the scorer)
 ```
 
-In the dashboard, open an email to see its score breakdown, then:
+In the dashboard, open an email to see its score breakdown, its SPF/DKIM/DMARC results, the message as plain text and every link with its real destination. Suspicious links are marked, for example when the text says one site but the link goes to another, or when it points to free file hosting. Links are shown as text and can't be clicked, so you can't open one by accident. From there:
 - **Move to trash** moves it to Gmail Trash, where it can be recovered for 30 days.
 - **Block sender & trash** also adds a Gmail filter that sends future mail from that address to Trash. Undo it in Gmail under Settings → Filters and Blocked Addresses.
 - **✓ Safe / ⚠ Scam** records your verdict. Use the label filter to find emails you haven't labelled yet.
