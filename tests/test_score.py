@@ -5,7 +5,7 @@ from pathlib import Path
 
 sys.path.insert(0, str(Path(__file__).resolve().parent.parent / "backend"))
 
-from parse import parse_eml  # noqa: E402
+from parse import Link, parse_eml  # noqa: E402
 from score import (FLAG_AT, claimed_brand, looks_random, reg_domain,  # noqa: E402
                    same_org, score)
 
@@ -72,6 +72,14 @@ class ScoreFixtures(unittest.TestCase):
         e, r = run("attachment.eml")
         self.assertEqual(e.attachments, ["invoice.pdf.exe"])
         self.assertReason(r, "+40 risky attachment invoice.pdf.exe")
+
+
+    def test_malformed_link_does_not_crash(self):
+        # urlparse raises on hosts like this; one such email used to stall every sync
+        e, _ = run("legit_paypal.eml")
+        e.links.append(Link("http://[::1zz]/x", "paypal.com"))
+        e.links.append(Link("http://[::1/unclosed", "click"))
+        score(e)  # must not raise
 
 
 class Helpers(unittest.TestCase):

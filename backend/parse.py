@@ -1,5 +1,4 @@
 import re
-import sys
 from dataclasses import dataclass, field
 from email import policy
 from email.parser import BytesParser
@@ -115,12 +114,3 @@ def parse_eml(path):
         attachments=attachments,
     )
 
-
-if __name__ == "__main__":
-    for p in sorted(Path(sys.argv[1] if len(sys.argv) > 1 else "samples").glob("*.eml")):
-        e = parse_eml(p)
-        print(f"\n{e.subject!r}")
-        print(f"  from:     {e.from_name} <{e.from_addr}>")
-        print(f"  reply-to: {e.reply_to or '-'}   return-path: {e.return_path or '-'}")
-        print(f"  auth:     {e.auth_results[:120]}")
-        print(f"  links:    {len(e.links)}   attachments: {e.attachments or '-'}")

@@ -22,7 +22,7 @@ from gmail import (SAFE_ADDRESS, block_sender, get_service, list_blocks, trash_m
                    unblock_sender, untrash_message)
 from parse import parse_eml  # noqa: E402
 from score import (DOMAIN_IN_TEXT, FLAG_AT, FREE_HOSTING, TRACKERS, auth_result,  # noqa: E402
-                   reg_domain, same_org)
+                   reg_domain, same_org, url_host)
 
 ROOT = Path(__file__).parent
 # DEMO=1: public read-only demo on the fictional emails in demo/samples; no Gmail access
@@ -132,7 +132,7 @@ def emails():
 
 def describe_link(link, from_dom):
     """Where a link really goes, and why it might be misleading."""
-    host = (urlparse(link.href).hostname or "") if "://" in link.href else ""
+    host = url_host(link.href) if "://" in link.href else ""
     dom = reg_domain(link.href) or host
     warning = None
     shown = DOMAIN_IN_TEXT.search(link.text or "")
@@ -141,9 +141,11 @@ def describe_link(link, from_dom):
         warning = "free file hosting"
     elif host and re.fullmatch(r"[\d.]+|\[[\da-f:]+\]", host):
         warning = "raw IP address"
-    elif shown_dom and dom and not same_org(shown_dom, dom) and dom not in TRACKERS:
+    elif dom in TRACKERS or (from_dom and same_org(dom, from_dom)):
+        pass  # click trackers and the sender's own site are normal (same rule as the scorer)
+    elif shown_dom and dom and not same_org(shown_dom, dom):
         warning = f"text says {shown_dom}"
-    elif dom and dom not in TRACKERS and not (from_dom and same_org(dom, from_dom)):
+    elif dom:
         warning = "different site from sender"
     return {"text": (link.text or "")[:200], "href": link.href[:500], "host": host or link.href[:60],
             "warning": warning}
@@ -217,9 +219,9 @@ def trash(msg_id):
                                  "Use Move to trash instead."), 400
         try:
             svc = get_service()
-            trash_message(svc, msg_id)
-            if block:
+            if block:  # block first: if it fails, nothing has been trashed yet
                 block_sender(svc, row["sender"])
+            trash_message(svc, msg_id)
         except HttpError as err:
             return jsonify(error=f"Gmail error: {err.reason}"), 502
         except Exception as err:  # e.g. sign-in failed or missing permissions
