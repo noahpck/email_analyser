@@ -69,7 +69,9 @@ The first sync downloads the latest 100 emails from your inbox and spam folder, 
 
 Use the search box, the inbox/spam buttons, the label menu and **Flagged only** to filter the list.
 
-Emails you trash or delete in Gmail itself also disappear from the dashboard.
+Emails you trash or delete in Gmail itself also disappear from the dashboard, and come back if you restore them in Gmail.
+
+The dashboard shows the last 90 days of mail. Flagged emails stay, however old.
 
 ## Settings
 
@@ -95,7 +97,7 @@ Add your Gmail address under **Google Auth Platform → Audience → Test users*
 Something else is using the port. Run `PORT=8010 python app.py` and open http://localhost:8010.
 
 **Keep these files private**
-`credentials.json`, `token.json`, `analyser.db` and `samples/` contain your credentials and your email. Don't commit or share them. The first three are already git-ignored; if you fork this repo, add `samples/` to `.gitignore` too. `token.json` gives access to your mailbox, so if it ever leaks, remove the app's access at [myaccount.google.com/permissions](https://myaccount.google.com/permissions).
+`credentials.json`, `token.json`, `analyser.db` and `samples/` contain your credentials and your email. Don't commit or share them. All four are already git-ignored. `token.json` gives access to your mailbox, so if it ever leaks, remove the app's access at [myaccount.google.com/permissions](https://myaccount.google.com/permissions).
 
 ## Checking accuracy
 
@@ -112,7 +114,6 @@ For emails you haven't labelled, it assumes anything in your spam folder is a sc
 
 ```bash
 python backend/sync.py             # sync once without starting the dashboard
-python backend/setup.py PROMOTIONS # download up to 100 emails from any Gmail label
 python backend/analyse.py          # re-score every downloaded email
 python -m unittest -v              # run the tests
 ```

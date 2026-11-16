@@ -1,5 +1,7 @@
 """Scorer tests. Run from the project root: python -m unittest -v"""
+import re
 import sys
+import tempfile
 import unittest
 from pathlib import Path
 
@@ -73,6 +75,20 @@ class ScoreFixtures(unittest.TestCase):
         self.assertEqual(e.attachments, ["invoice.pdf.exe"])
         self.assertReason(r, "+40 risky attachment invoice.pdf.exe")
 
+
+    def test_archive_does_not_hide_dangerous_attachment(self):
+        e, _ = run("legit_paypal.eml")
+        e.attachments = ["photos.zip", "invoice.pdf.exe"]
+        self.assertReason(score(e), "+40 risky attachment invoice.pdf.exe")
+
+    def test_attachment_named_only_in_content_type(self):
+        # no Content-Disposition header, just Content-Type: ...; name="..."
+        raw = (FIXTURES / "attachment.eml").read_text()
+        raw = re.sub(r"(?im)^Content-Disposition:.*\n", "", raw)
+        with tempfile.TemporaryDirectory() as tmp:
+            path = Path(tmp) / "x.eml"
+            path.write_text(raw)
+            self.assertEqual(parse_eml(path).attachments, ["invoice.pdf.exe"])
 
     def test_malformed_link_does_not_crash(self):
         # urlparse raises on hosts like this; one such email used to stall every sync

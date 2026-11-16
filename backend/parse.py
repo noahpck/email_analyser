@@ -77,7 +77,8 @@ def parse_eml(path):
     for part in msg.walk():
         if part.is_multipart():
             continue
-        if part.get_content_disposition() == "attachment":
+        # get_filename() also reads Content-Type's name=, which spam uses without a disposition
+        if part.get_content_disposition() == "attachment" or part.get_filename():
             attachments.append(part.get_filename() or "(unnamed)")
             continue
         ctype = part.get_content_type()

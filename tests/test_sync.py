@@ -62,6 +62,9 @@ class ChangesSince(unittest.TestCase):
     def removed(self, *events):
         return sync._changes_since(FakeGmail(history=events), "1")[1]
 
+    def restored(self, *events):
+        return sync._changes_since(FakeGmail(history=events), "1")[2]
+
     def test_trash_hides(self):
         self.assertEqual(self.removed(trash("m1")), {"m1"})
 
@@ -70,6 +73,10 @@ class ChangesSince(unittest.TestCase):
 
     def test_restore_then_trash_hides(self):
         self.assertEqual(self.removed(trash("m1", removed=True), trash("m1")), {"m1"})
+
+    def test_restore_is_reported(self):
+        self.assertEqual(self.restored(trash("m1"), trash("m1", removed=True)), {"m1"})
+        self.assertEqual(self.restored(trash("m1", removed=True), trash("m1")), set())
 
     def test_permanent_delete_hides(self):
         self.assertEqual(self.removed({"messagesDeleted": [{"message": {"id": "m2"}}]}), {"m2"})
@@ -115,6 +122,16 @@ class FullSync(unittest.TestCase):
         self.assertEqual(result["new"], 1)
         # bookmark still saved, so the next sync moves on instead of retrying forever
         self.assertEqual(analyse.connect().execute("SELECT value FROM sync_state").fetchone()[0], "100")
+        # and its file is gone, so analyse.py / evaluate.py don't crash on it later
+        self.assertEqual([p.stem for p in sync.SAMPLES.glob("*/*.eml")], ["good"])
+
+    def test_restored_in_gmail_shows_again(self):
+        sync.sync(FakeGmail(inbox=["a1"]))
+        sync.sync(FakeGmail(history=[trash("a1")]))
+        con = analyse.connect()
+        self.assertEqual(con.execute("SELECT action FROM actions").fetchall(), [("removed_in_gmail",)])
+        sync.sync(FakeGmail(history=[trash("a1", removed=True)]))
+        self.assertEqual(con.execute("SELECT COUNT(*) FROM actions").fetchone()[0], 0)
 
 
 if __name__ == "__main__":
