@@ -24,3 +24,6 @@ venv/
 .vscode/
 .idea/
 .DS_Store
+
+# Downloaded emails (personal data)
+samples/
