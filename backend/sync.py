@@ -4,6 +4,7 @@ Uses Gmail's history API, so after the first run each sync only fetches what cha
 Usage (from the project root): python backend/sync.py
 """
 import base64
+import logging
 
 from googleapiclient.errors import HttpError
 
@@ -12,6 +13,7 @@ from gmail import get_service
 
 LABELS = ("SPAM", "INBOX")  # SPAM first: if a message somehow has both, treat it as spam
 FIRST_SYNC_MAX = 100  # per label, on the first run or after history expires
+log = logging.getLogger(__name__)
 
 
 def _get_state(con, key):
@@ -43,7 +45,7 @@ def _changes_since(svc, start):
     added, removed, latest = {}, set(), start
     history = svc.users().history()
     req = history.list(userId="me", startHistoryId=start,
-                       historyTypes=["messageAdded", "labelAdded", "messageDeleted"])
+                       historyTypes=["messageAdded", "labelAdded", "labelRemoved", "messageDeleted"])
     while req is not None:
         resp = req.execute()
         latest = resp.get("historyId", latest)
@@ -52,9 +54,13 @@ def _changes_since(svc, start):
                 m = item["message"]
                 if label := _label_of(m.get("labelIds", [])):
                     added[m["id"]] = label
+            # events come oldest first, so a later restore cancels an earlier trash
             for item in h.get("labelsAdded", []):
                 if "TRASH" in item.get("labelIds", []):
                     removed.add(item["message"]["id"])
+            for item in h.get("labelsRemoved", []):
+                if "TRASH" in item.get("labelIds", []):
+                    removed.discard(item["message"]["id"])
             for item in h.get("messagesDeleted", []):
                 removed.add(item["message"]["id"])
         req = history.list_next(req, resp)
@@ -95,7 +101,11 @@ def sync(svc=None):
             folder.mkdir(parents=True, exist_ok=True)
             path = folder / f"{msg_id}.eml"
             path.write_bytes(base64.urlsafe_b64decode(raw))
-            store(con, path, folder.name)
+            try:
+                store(con, path, folder.name)
+            except Exception:  # one odd email must not block every future sync
+                log.exception("couldn't score %s; skipped", path)
+                continue
             new += 1
 
         # hide emails you trashed or deleted in Gmail itself

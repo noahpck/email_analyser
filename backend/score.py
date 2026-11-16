@@ -1,5 +1,4 @@
 import re
-import sys
 import unicodedata
 from dataclasses import dataclass, field
 from ipaddress import ip_address
@@ -9,7 +8,7 @@ from urllib.parse import urlparse
 import tldextract
 from rapidfuzz import fuzz
 
-from parse import Email, parse_eml
+from parse import Email
 
 # brand keyword -> registered domains it legitimately sends from
 BRANDS = {
@@ -90,9 +89,18 @@ class Result:
         self.reasons.append(f"+{points} {reason}")
 
 
+def url_host(url):
+    """Host of a link, or "" if the URL is malformed. Senders control links, and
+    urlparse raises on some (e.g. http://[::1zz]/), which would crash scoring."""
+    try:
+        return (urlparse(url).hostname or "").lower()
+    except ValueError:
+        return ""
+
+
 def _host(value):
     if "://" in value:
-        return (urlparse(value).hostname or "").lower()
+        return url_host(value)
     return value.rsplit("@", 1)[-1].lower()
 
 
@@ -245,7 +253,7 @@ def score(e: Email) -> Result:
         if brand := lookalike_brand(reg_domain(link.href)):
             r.add(30, f"link domain {reg_domain(link.href)} resembles {brand}")
             break
-    hosts = {(urlparse(l.href).hostname or "").lower() for l in e.links if "://" in l.href}
+    hosts = {url_host(l.href) for l in e.links if "://" in l.href}
     if hosted := sorted(h for h in hosts if FREE_HOSTING.search(h)):
         r.add(25, f"links to free file hosting ({hosted[0]})")
     for h in hosts:
@@ -255,7 +263,7 @@ def score(e: Email) -> Result:
             continue
         r.add(25, f"link goes to a raw IP address ({h})")
         break
-    if any("@" in (urlparse(l.href).netloc or "") for l in e.links if "://" in l.href):
+    if any(re.match(r"[a-z][a-z0-9+.-]*://[^/?#]*@", l.href, re.I) for l in e.links):
         r.add(25, "link hides its real destination with user@host")
 
     # --- attachments ---
@@ -271,12 +279,3 @@ def score(e: Email) -> Result:
 
     return r
 
-
-if __name__ == "__main__":
-    folder = Path(sys.argv[1] if len(sys.argv) > 1 else "samples")
-    results = [(score(e), e) for e in map(parse_eml, sorted(folder.glob("*.eml")))]
-    for res, e in sorted(results, key=lambda x: -x[0].score):
-        flag = "FLAG" if res.score >= FLAG_AT else "    "
-        print(f"{flag} {res.score:>3}  {e.subject[:60]!r}")
-        for reason in res.reasons:
-            print(f"            {reason}")
