@@ -1,0 +1,14 @@
+Delivered-To: alex.doe@example.com
+Authentication-Results: mx.google.com;
+       spf=softfail smtp.mailfrom=bounce@paypa1.com;
+       dmarc=fail (p=NONE sp=NONE dis=NONE) header.from=paypa1.com
+Return-Path: <bounce@paypa1.com>
+From: "PayPal" <service@paypa1.com>
+To: alex.doe@example.com
+Subject: Your account access has been limited
+Date: Mon, 02 Nov 2026 09:12:00 +0000
+Message-ID: <demo-paypal-lookalike@paypa1.com>
+MIME-Version: 1.0
+Content-Type: text/html; charset="utf-8"
+
+<p>Dear customer,</p><p>We noticed unusual activity on your account and have limited access. Please confirm your details within 24 hours to avoid permanent suspension.</p><p><a href="http://192.0.2.10/login">https://www.paypal.com/signin</a></p><p>PayPal Security</p>

@@ -12,6 +12,27 @@ The scorer (`backend/score.py`) checks things like:
 
 Every flag comes with the reasons behind it.
 
+## Demo
+
+Demo mode runs the dashboard on 17 fictional emails in `demo/samples/`: 9 scams and 8 legitimate emails. It has no Gmail access, so you can share it publicly.
+
+```bash
+DEMO=1 python app.py               # http://localhost:8000
+```
+
+In demo mode:
+- Gmail actions and writes are turned off.
+- Safe/Scam labels are saved in the visitor's own browser.
+- The database is a throwaway one, rebuilt at startup.
+
+One scam, the gift-card request, deliberately isn't flagged. It's properly authenticated and has no links, which shows what rule-based checks can't catch.
+
+To host it for free on [Render](https://render.com):
+1. In the Render dashboard, choose **New → Blueprint** and pick this repo. `render.yaml` sets everything up: `DEMO=1`, gunicorn and the free plan.
+2. Once it's deployed, put the `onrender.com` URL at the top of this README.
+
+The free plan sleeps after 15 minutes without visitors, so the first visit after that takes about 30 seconds.
+
 ## Setup
 
 Requires Python 3.12+.
@@ -86,6 +107,8 @@ The tests run the scorer on small hand-made emails in `tests/fixtures/`, such as
 | `backend/score.py` | Phishing heuristics; an email is flagged at a score of 40 or more |
 | `backend/analyse.py` | Database helpers; run directly to re-score every sample |
 | `backend/evaluate.py` | Measures the scorer against your Safe/Scam labels |
+| `demo/samples/` | Fictional emails for the public demo |
+| `render.yaml` | Render config for hosting the demo |
 | `tests/` | Unit tests and `.eml` fixtures for the scorer |
 | `app.py` | Flask server: JSON API, trash/block endpoint and background sync, bound to localhost |
 | `static/` | Dashboard page (plain HTML, CSS and JS, no build step) |

@@ -1,0 +1,15 @@
+Delivered-To: alex.doe@example.com
+Authentication-Results: mx.google.com;
+       dkim=pass header.i=@paypal.com header.s=s1 header.b=abc;
+       spf=pass smtp.mailfrom=bounce@paypal.com;
+       dmarc=pass (p=REJECT sp=REJECT dis=NONE) header.from=paypal.com
+Return-Path: <bounce@mail.paypal.com>
+From: "PayPal" <service@paypal.com>
+To: alex.doe@example.com
+Subject: Receipt for your payment to Example Store
+Date: Tue, 03 Nov 2026 14:22:00 +0000
+Message-ID: <demo-paypal-receipt@mail.paypal.com>
+MIME-Version: 1.0
+Content-Type: text/html; charset="utf-8"
+
+<p>You sent a payment of $24.00 USD to Example Store.</p><p><a href="https://www.paypal.com/activity/payment/123">View transaction</a></p>

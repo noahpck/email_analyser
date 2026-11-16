@@ -1,0 +1,15 @@
+Delivered-To: alex.doe@example.com
+Authentication-Results: mx.google.com;
+       dkim=pass header.i=@cb-bonus-event.net header.s=s1 header.b=abc;
+       spf=pass smtp.mailfrom=rewards@cb-bonus-event.net
+Return-Path: <rewards@cb-bonus-event.net>
+From: "Coinbase Rewards" <rewards@cb-bonus-event.net>
+To: alex.doe@example.com
+Reply-To: cb.payouts.desk@gmail.com
+Subject: Congratulations, you have won 0.25 BTC
+Date: Mon, 09 Nov 2026 18:45:00 +0000
+Message-ID: <demo-crypto-giveaway@cb-bonus-event.net>
+MIME-Version: 1.0
+Content-Type: text/html; charset="utf-8"
+
+<p>Congratulations! You have won 0.25 BTC in our anniversary draw. Claim your reward by replying with your wallet details.</p><p><a href="https://cb-bonus-event.net/claim">Claim now</a></p>

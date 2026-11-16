@@ -1,0 +1,15 @@
+Delivered-To: alex.doe@example.com
+Authentication-Results: mx.google.com;
+       dkim=pass header.i=@kowhaibank.co.nz header.s=s1 header.b=abc;
+       spf=pass smtp.mailfrom=bounce@kowhaibank.co.nz;
+       dmarc=pass (p=REJECT sp=REJECT dis=NONE) header.from=kowhaibank.co.nz
+Return-Path: <bounce@kowhaibank.co.nz>
+From: "Kowhai Bank" <statements@kowhaibank.co.nz>
+To: alex.doe@example.com
+Subject: Your October statement is ready
+Date: Tue, 10 Nov 2026 06:15:00 +0000
+Message-ID: <demo-bank-statement@kowhaibank.co.nz>
+MIME-Version: 1.0
+Content-Type: text/html; charset="utf-8"
+
+<p>Your statement for October is ready to view in online banking. We will never ask for your password by email.</p><p><a href="https://www.kowhaibank.co.nz/login">kowhaibank.co.nz</a></p>

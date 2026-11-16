@@ -1,9 +1,11 @@
+import atexit
 import json
 import logging
 import os
 import re
 import sqlite3
 import sys
+import tempfile
 import threading
 import time
 from datetime import datetime, timezone
@@ -15,17 +17,33 @@ from googleapiclient.errors import HttpError
 
 sys.path.insert(0, str(Path(__file__).parent / "backend"))
 import sync as gmail_sync  # noqa: E402
-from analyse import SAMPLES, connect  # noqa: E402
+import analyse  # noqa: E402
 from gmail import (block_sender, get_service, list_blocks, trash_message,  # noqa: E402
                    unblock_sender, untrash_message)
 from parse import parse_eml  # noqa: E402
-from score import (DOMAIN_IN_TEXT, FREE_HOSTING, TRACKERS, auth_result,  # noqa: E402
+from score import (DOMAIN_IN_TEXT, FLAG_AT, FREE_HOSTING, TRACKERS, auth_result,  # noqa: E402
                    reg_domain, same_org)
 
-SYNC_MINUTES = float(os.environ.get("SYNC_MINUTES", 5))  # 0 disables background sync
+ROOT = Path(__file__).parent
+# DEMO=1: public read-only demo on the fictional emails in demo/samples; no Gmail access
+DEMO = os.environ.get("DEMO") == "1"
+SYNC_MINUTES = 0 if DEMO else float(os.environ.get("SYNC_MINUTES", 5))  # 0 disables sync
+REPO_URL = os.environ.get("REPO_URL", "")
 log = logging.getLogger("email_analyser")
 logging.basicConfig(level=logging.INFO, format="%(asctime)s %(levelname)s %(message)s")
 app = Flask(__name__, static_folder="static", static_url_path="/static")
+
+if DEMO:
+    # Fresh throwaway database per process, scored from the demo emails at startup
+    fd, demo_db = tempfile.mkstemp(prefix="email-analyser-demo-", suffix=".db")
+    os.close(fd)
+    atexit.register(lambda: os.path.exists(demo_db) and os.remove(demo_db))
+    analyse.DB = demo_db
+    analyse.SAMPLES = ROOT / "demo" / "samples"
+    with analyse.connect() as con:
+        for path in sorted(analyse.SAMPLES.glob("*/*.eml")):
+            analyse.store(con, path, path.parent.name)
+    log.info("demo mode: scored %d sample emails", len(list(analyse.SAMPLES.glob("*/*.eml"))))
 
 _sync_lock = threading.Lock()
 sync_status = {"last_sync": None, "last_new": 0, "last_error": None, "running": False,
@@ -33,7 +51,7 @@ sync_status = {"last_sync": None, "last_new": 0, "last_error": None, "running": 
 
 
 def db():
-    con = connect()
+    con = analyse.connect()
     con.row_factory = sqlite3.Row
     return con
 
@@ -64,15 +82,31 @@ def sync_loop():
         time.sleep(SYNC_MINUTES * 60)
 
 
+DEMO_DISABLED = {"history", "blocked"}  # GET endpoints that need Gmail
+
+
 @app.before_request
 def same_origin_only():
     """Block other websites from triggering actions on this local server."""
+    if DEMO and (request.method == "POST" or request.endpoint in DEMO_DISABLED):
+        return jsonify(error="Gmail actions are turned off in the demo."), 403
     if request.method == "POST":
         origin = request.headers.get("Origin")
         if origin and urlparse(origin).netloc != request.host:
             abort(403)
         if not request.is_json:
             abort(415)
+
+
+@app.after_request
+def security_headers(resp):
+    # Only the app's own scripts and styles may load; no framing, no referrer leaks
+    resp.headers["Content-Security-Policy"] = (
+        "default-src 'self'; img-src 'self' data:; frame-ancestors 'none'; "
+        "base-uri 'none'; form-action 'none'")
+    resp.headers["X-Content-Type-Options"] = "nosniff"
+    resp.headers["Referrer-Policy"] = "no-referrer"
+    return resp
 
 
 @app.get("/")
@@ -116,8 +150,8 @@ def detail(msg_id):
         row = con.execute("SELECT source FROM results WHERE msg_id = ?", (msg_id,)).fetchone()
     if not row:
         abort(404)
-    path = (SAMPLES / row["source"] / f"{msg_id}.eml").resolve()
-    if SAMPLES.resolve() not in path.parents or not path.exists():
+    path = (analyse.SAMPLES / row["source"] / f"{msg_id}.eml").resolve()
+    if analyse.SAMPLES.resolve() not in path.parents or not path.exists():
         abort(404)
     e = parse_eml(path)
     from_dom = reg_domain(e.from_addr)
@@ -131,6 +165,11 @@ def detail(msg_id):
             if e.auth_results else None)
     return jsonify(body=e.body, links=links[:100], link_count=len(links), auth=auth,
                    reply_to=e.reply_to, return_path=e.return_path, attachments=e.attachments)
+
+
+@app.get("/api/config")
+def config():
+    return jsonify(demo=DEMO, flag_at=FLAG_AT, repo_url=REPO_URL, sync=SYNC_MINUTES > 0)
 
 
 @app.get("/api/status")

@@ -1,0 +1,14 @@
+Delivered-To: alex.doe@example.com
+Authentication-Results: mx.google.com;
+       dkim=pass header.i=@gmail.mcsv.net header.s=k2 header.b=abc;
+       spf=pass smtp.mailfrom=bounce-mc.us14_1@mail125.sea31.mcsv.net
+Return-Path: <bounce-mc.us14_1@mail125.sea31.mcsv.net>
+From: "Student Services" <news@students.example.ac.nz>
+To: alex.doe@example.com
+Subject: Exam timetable and study support
+Date: Mon, 09 Nov 2026 08:00:00 +0000
+Message-ID: <demo-uni-newsletter@mail125.sea31.mcsv.net>
+MIME-Version: 1.0
+Content-Type: text/html; charset="utf-8"
+
+<p>Your exam timetable is now available. Free study sessions run all week in the library.</p><p><a href="https://students.us14.list-manage.com/track/click?u=1">students.example.ac.nz/exams</a></p>

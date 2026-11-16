@@ -9,12 +9,17 @@
 </head>
 <body>
   <main>
+    <div id="demo-banner" class="demo-banner" hidden>
+      <strong>Demo</strong>
+      <span>These are fictional sample emails. Open one to see why it was or wasn't flagged, and try labelling it Safe or Scam (your labels stay in this browser). Gmail actions are turned off.</span>
+      <a id="demo-repo" href="#" target="_blank" rel="noopener" hidden>Run it on your own inbox →</a>
+    </div>
     <header>
       <div>
         <h1>Email Analyser</h1>
         <p class="muted">Phishing and scam scores for your Gmail</p>
       </div>
-      <div class="sync">
+      <div id="sync-box" class="sync">
         <span id="sync-status" class="muted">Checking sync…</span>
         <button id="sync-now" class="btn" type="button">Sync now</button>
       </div>
