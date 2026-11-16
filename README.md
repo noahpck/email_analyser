@@ -1,114 +1,132 @@
 # Email Analyser
 
-Pulls emails from Gmail, scores each one for phishing/scam signals, and shows the results in a local dark-mode dashboard where you can trash an email or block its sender.
+Connects to your Gmail, scores every email in your inbox and spam folder for signs of phishing or scams, and shows the results in a dashboard on your own computer. From the dashboard you can move an email to Trash or block its sender.
 
-The scorer (`backend/score.py`) checks things like:
-- SPF, DKIM and DMARC results
-- lookalike or machine-generated sender domains
-- brand impersonation in the display name
-- mismatched or free-hosted links
-- scam phrasing
-- risky attachments
+Every score comes with the reasons behind it, for example:
+- failed sender authentication (SPF, DKIM, DMARC)
+- lookalike or machine-generated sender domains, like `paypa1.com`
+- a display name claiming a brand the sender isn't, like "PayPal" from a random domain
+- links whose text shows one site but go to another, or point to free file hosting
+- common scam phrasing
+- risky attachments, like `invoice.pdf.exe`
 
-Every flag comes with the reasons behind it.
+An email is flagged at a score of 40 or more.
 
-## Demo
+**Privacy:** everything runs on your machine. Your emails are downloaded to `samples/`, the results go into a local database (`analyser.db`), and nothing is sent anywhere except to Google's Gmail API.
 
-Demo mode runs the dashboard on 17 fictional emails in `demo/samples/`: 9 scams and 8 legitimate emails. It has no Gmail access, so you can share it publicly.
+## 1. Install
 
-```bash
-DEMO=1 python app.py               # http://localhost:8000
-```
-
-In demo mode:
-- Gmail actions and writes are turned off.
-- Safe/Scam labels are saved in the visitor's own browser.
-- The database is a throwaway one, rebuilt at startup.
-
-One scam, the gift-card request, deliberately isn't flagged. It's properly authenticated and has no links, which shows what rule-based checks can't catch.
-
-To host it for free on [Render](https://render.com):
-1. In the Render dashboard, choose **New → Blueprint** and pick this repo. `render.yaml` sets everything up: `DEMO=1`, gunicorn and the free plan.
-2. Once it's deployed, put the `onrender.com` URL at the top of this README.
-
-The free plan sleeps after 15 minutes without visitors, so the first visit after that takes about 30 seconds.
-
-## Setup
-
-Requires Python 3.12+.
+You need Python 3.12 or newer.
 
 ```bash
-python -m venv .venv && source .venv/bin/activate
+git clone https://github.com/noahpck/email_analyser.git
+cd email_analyser
+python -m venv .venv
+source .venv/bin/activate          # Windows: .venv\Scripts\activate
 pip install -r requirements.txt
 ```
 
-1. In [Google Cloud Console](https://console.cloud.google.com/), create a project and enable the **Gmail API**.
-2. Create an **OAuth client ID** (application type: Desktop app) and save the downloaded file as `credentials.json` in the project root.
-3. If the OAuth consent screen is in Testing mode, add your Gmail address as a test user.
+## 2. Create your Google credentials
 
-The first Gmail call opens a browser to sign in. Tick **every** permission checkbox: the app needs to read mail, move mail to Trash and create filters. The login is saved to `token.json`.
+Gmail only lets apps in through credentials you create yourself. This takes about 5 minutes, and it's free.
 
-`credentials.json`, `token.json` and `analyser.db` are git-ignored. Don't commit them.
+1. Go to [Google Cloud Console](https://console.cloud.google.com/) and create a new project. Any name works.
+2. Open **APIs & Services → Library**, search for **Gmail API** and click **Enable**.
+3. Open **Google Auth Platform** (called **OAuth consent screen** in some accounts) and click **Get started**:
+   - **App name:** anything, like "Email Analyser". **Support email:** your Gmail address.
+   - **Audience:** choose **External**.
+   - Finish the setup.
+4. Under **Audience → Test users**, add your own Gmail address. Only test users can sign in.
+5. Under **Clients**, click **Create client**, choose **Desktop app**, then download the JSON file.
+6. Rename the file to `credentials.json` and put it in the `email_analyser` folder.
 
-## Usage
-
-Run everything from the project root:
-
-```bash
-python app.py                      # dashboard at http://localhost:8000
-```
-
-The app syncs your INBOX and SPAM every 5 minutes in the background. Use **Sync now** in the dashboard to sync straight away. The first sync downloads the latest 100 emails from each label. After that, Gmail's history API means each sync only fetches new mail. Emails you trash or delete in Gmail itself disappear from the dashboard too.
-
-Settings, as environment variables:
-- `SYNC_MINUTES=10` changes the interval; `0` turns background sync off.
-- `PORT=8010` serves the dashboard on a different port.
-
-Other commands:
+## 3. Run it
 
 ```bash
-python backend/sync.py             # one sync without the dashboard
-python backend/setup.py PROMOTIONS # download up to 100 emails from any label into samples/<label>/
-python backend/analyse.py          # re-score every sample (run after changing the scorer)
+python app.py
 ```
 
-In the dashboard, open an email to see its score breakdown, its SPF/DKIM/DMARC results, the message as plain text and every link with its real destination. Suspicious links are marked, for example when the text says one site but the link goes to another, or when it points to free file hosting. Links are shown as text and can't be clicked, so you can't open one by accident. From there:
-- **Move to trash** moves it to Gmail Trash, where it can be recovered for 30 days.
-- **Block sender & trash** also adds a Gmail filter that sends future mail from that address to Trash.
-- The **History & blocked** tab lists everything you've trashed or blocked. **Restore** takes an email out of Gmail Trash, and for blocked emails it also removes the block. **Unblock** deletes a sender's block filter. This includes "Delete it" filters you created in Gmail yourself.
-- **✓ Safe / ⚠ Scam** records your verdict. Use the label filter to find emails you haven't labelled yet.
+Open **http://localhost:8000**.
 
-To check the scorer's accuracy after changing it:
+The first time, a browser window opens to sign in to Google:
+- You'll see **"Google hasn't verified this app"**. That's expected, because it's your own app. Click **Continue**.
+- **Tick every permission checkbox.** The app needs to read your mail, move mail to Trash and create filters. If you leave one unticked, it will ask you to sign in again.
+
+Your login is saved to `token.json`, so you won't be asked again for a while.
+
+The first sync downloads the latest 100 emails from your inbox and spam folder, so give it a minute. After that it checks for new mail every 5 minutes, fetching only what's new.
+
+## 4. Use the dashboard
+
+- **Open any email** to see its score breakdown, its security checks, the message as plain text, and every link with where it really goes. Suspicious links are marked, and links can't be clicked, so you can't open a scam link by accident.
+- **Move to trash** sends it to Gmail Trash. You can recover it for 30 days.
+- **Block sender & trash** also adds a Gmail filter, so future mail from that address goes straight to Trash.
+- **✓ Safe / ⚠ Scam** records your own verdict. Use these when the score is wrong; see "Checking accuracy" below.
+- **Sync now** checks for new mail straight away.
+- **History & blocked** tab:
+  - **Restore** brings a trashed email back. For blocked emails, it also removes the block.
+  - **Unblock** removes a sender's block filter.
+
+Use the search box, the inbox/spam buttons, the label menu and **Flagged only** to filter the list.
+
+Emails you trash or delete in Gmail itself also disappear from the dashboard.
+
+## Settings
+
+Set these as environment variables before `python app.py`, for example `SYNC_MINUTES=10 python app.py`.
+
+| Variable | Default | What it does |
+| --- | --- | --- |
+| `SYNC_MINUTES` | `5` | How often to check for new mail. `0` turns automatic sync off. |
+| `PORT` | `8000` | Port for the dashboard. |
+
+## Troubleshooting
+
+**"Google sign-in didn't grant: …"**
+You left a permission unticked. Delete `token.json`, restart the app, and tick every box.
+
+**You have to sign in again after a week**
+Google expires logins every 7 days for apps in Testing mode. Delete `token.json` and restart to sign in again. It's a Google restriction on unverified personal apps.
+
+**"Access blocked" or "not a test user"**
+Add your Gmail address under **Google Auth Platform → Audience → Test users**.
+
+**"Port 8000 is in use"**
+Something else is using the port. Run `PORT=8010 python app.py` and open http://localhost:8010.
+
+**Keep these files private**
+`credentials.json`, `token.json`, `analyser.db` and `samples/` contain your credentials and your email. Don't commit or share them. The first three are already git-ignored; if you fork this repo, add `samples/` to `.gitignore` too. `token.json` gives access to your mailbox, so if it ever leaks, remove the app's access at [myaccount.google.com/permissions](https://myaccount.google.com/permissions).
+
+## Checking accuracy
+
+The scorer is rule-based, so it will sometimes be wrong. Label emails **Safe** or **Scam** in the dashboard, then run:
 
 ```bash
 python backend/evaluate.py              # scams caught, false alarms, and the emails it gets wrong
 python backend/evaluate.py --labelled   # only count emails you've labelled
-python backend/evaluate.py --all        # list every email with its reasons
 ```
 
-`evaluate.py` treats your labels as the truth. Emails you haven't labelled count as scam if they came from `samples/spam` and safe otherwise, so labelling Gmail's mistakes makes the numbers more accurate.
+For emails you haven't labelled, it assumes anything in your spam folder is a scam and everything else is safe.
 
-## Tests
+## Other commands
 
 ```bash
-python -m unittest -v
+python backend/sync.py             # sync once without starting the dashboard
+python backend/setup.py PROMOTIONS # download up to 100 emails from any Gmail label
+python backend/analyse.py          # re-score every downloaded email
+python -m unittest -v              # run the tests
 ```
 
-The tests run the scorer on small hand-made emails in `tests/fixtures/`, such as a lookalike PayPal phish, the real PayPal, a scam newsletter and a draft. They also cover the helper functions. GitHub Actions runs them on every push. When you change the scorer, add a fixture for the case you're fixing.
-
-## Layout
+## How it's built
 
 | File | Purpose |
 | --- | --- |
-| `backend/gmail.py` | Gmail auth, trash and block-sender helpers |
-| `backend/sync.py` | Incremental INBOX/SPAM sync using Gmail's history API |
-| `backend/setup.py` | Downloads raw `.eml` files from any Gmail label |
-| `backend/parse.py` | Extracts headers, links, body text and attachments |
-| `backend/score.py` | Phishing heuristics; an email is flagged at a score of 40 or more |
-| `backend/analyse.py` | Database helpers; run directly to re-score every sample |
+| `app.py` | Local web server: dashboard, API and background sync. Only reachable from your own computer. |
+| `static/` | The dashboard page (plain HTML, CSS and JavaScript) |
+| `backend/gmail.py` | Google sign-in, trash, block and restore |
+| `backend/sync.py` | Fetches new inbox and spam mail using Gmail's history API |
+| `backend/parse.py` | Reads headers, links, body text and attachments from each email |
+| `backend/score.py` | The phishing checks and their scores |
+| `backend/analyse.py` | Database helpers |
 | `backend/evaluate.py` | Measures the scorer against your Safe/Scam labels |
-| `demo/samples/` | Fictional emails for the public demo |
-| `render.yaml` | Render config for hosting the demo |
-| `tests/` | Unit tests and `.eml` fixtures for the scorer |
-| `app.py` | Flask server: JSON API, trash/block endpoint and background sync, bound to localhost |
-| `static/` | Dashboard page (plain HTML, CSS and JS, no build step) |
+| `tests/` | Unit tests with hand-made example emails |
