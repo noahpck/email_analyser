@@ -16,7 +16,8 @@ from googleapiclient.errors import HttpError
 sys.path.insert(0, str(Path(__file__).parent / "backend"))
 import sync as gmail_sync  # noqa: E402
 from analyse import SAMPLES, connect  # noqa: E402
-from gmail import block_sender, get_service, trash_message  # noqa: E402
+from gmail import (block_sender, get_service, list_blocks, trash_message,  # noqa: E402
+                   unblock_sender, untrash_message)
 from parse import parse_eml  # noqa: E402
 from score import (DOMAIN_IN_TEXT, FREE_HOSTING, TRACKERS, auth_result,  # noqa: E402
                    reg_domain, same_org)
@@ -181,6 +182,71 @@ def trash(msg_id):
             (msg_id, "blocked" if block else "trashed"),
         )
     return jsonify(ok=True, sender=row["sender"], blocked=block)
+
+
+
+def gmail_errors(fn):
+    """Run a Gmail call; turn failures into a JSON error response."""
+    try:
+        return fn(), None
+    except HttpError as err:
+        return None, (jsonify(error=f"Gmail error: {err.reason}"), 502)
+    except Exception as err:  # e.g. sign-in failed or missing permissions
+        return None, (jsonify(error=str(err)), 500)
+
+
+@app.get("/api/history")
+def history():
+    """Everything you (or Gmail) removed, newest first."""
+    with db() as con:
+        rows = con.execute(
+            "SELECT a.msg_id, a.action, a.at, r.subject, r.sender, r.from_name, r.score "
+            "FROM actions a LEFT JOIN results r USING (msg_id) ORDER BY a.at DESC LIMIT 300"
+        ).fetchall()
+    return jsonify([dict(r) for r in rows])
+
+
+@app.post("/api/emails/<msg_id>/undo")
+def undo(msg_id):
+    """Restore a trashed email; if it was blocked, remove the block too."""
+    with db() as con:
+        row = con.execute(
+            "SELECT a.action, r.sender FROM actions a LEFT JOIN results r USING (msg_id) "
+            "WHERE a.msg_id = ?", (msg_id,)).fetchone()
+    if not row:
+        abort(404)
+
+    def restore():
+        svc = get_service()
+        try:
+            untrash_message(svc, msg_id)
+        except HttpError as err:
+            if err.resp.status == 404:
+                raise RuntimeError("This email was permanently deleted, so it can't be restored.")
+            raise
+        return unblock_sender(svc, row["sender"]) if row["action"] == "blocked" and row["sender"] else 0
+
+    unblocked, error = gmail_errors(restore)
+    if error:
+        return error
+    with db() as con:
+        con.execute("DELETE FROM actions WHERE msg_id = ?", (msg_id,))
+    return jsonify(ok=True, unblocked=bool(unblocked), sender=row["sender"])
+
+
+@app.get("/api/blocked")
+def blocked():
+    blocks, error = gmail_errors(lambda: list_blocks(get_service()))
+    return error or jsonify(sorted({b["sender"] for b in blocks}, key=str.lower))
+
+
+@app.post("/api/blocked/unblock")
+def unblock():
+    sender = str(request.get_json(silent=True, force=True).get("sender") or "").strip()
+    if not sender:
+        abort(400)
+    removed, error = gmail_errors(lambda: unblock_sender(get_service(), sender))
+    return error or jsonify(ok=True, removed=removed)
 
 
 if __name__ == "__main__":

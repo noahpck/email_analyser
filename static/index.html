@@ -20,6 +20,12 @@
       </div>
     </header>
 
+    <nav class="tabs" role="tablist">
+      <button id="tab-emails" class="tab" role="tab" aria-selected="true" aria-controls="view-emails" type="button">Emails</button>
+      <button id="tab-history" class="tab" role="tab" aria-selected="false" aria-controls="view-history" type="button">History &amp; blocked</button>
+    </nav>
+
+    <div id="view-emails" role="tabpanel" aria-labelledby="tab-emails">
     <section class="metrics">
       <div class="metric"><span class="label">Analysed</span><span id="m-total" class="value">–</span></div>
       <div class="metric"><span class="label">Flagged</span><span id="m-flagged" class="value danger">–</span></div>
@@ -54,6 +60,24 @@
       <h2 id="list-title">Emails</h2>
       <div id="list" class="list"><p class="muted">Loading…</p></div>
     </section>
+    </div>
+
+    <div id="view-history" role="tabpanel" aria-labelledby="tab-history" hidden>
+      <section class="card">
+        <div class="card-head">
+          <h2>Blocked senders</h2>
+          <span class="muted small">Gmail filters that send mail straight to Trash</span>
+        </div>
+        <div id="blocked" class="rows"><p class="muted">Loading…</p></div>
+      </section>
+      <section class="card">
+        <div class="card-head">
+          <h2>Recent actions</h2>
+          <span class="muted small">Trashed emails can be restored for 30 days</span>
+        </div>
+        <div id="history" class="rows"><p class="muted">Loading…</p></div>
+      </section>
+    </div>
   </main>
 
   <div id="tooltip" class="tooltip" hidden></div>

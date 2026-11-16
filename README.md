@@ -53,7 +53,8 @@ python backend/analyse.py          # re-score every sample (run after changing t
 
 In the dashboard, open an email to see its score breakdown, its SPF/DKIM/DMARC results, the message as plain text and every link with its real destination. Suspicious links are marked, for example when the text says one site but the link goes to another, or when it points to free file hosting. Links are shown as text and can't be clicked, so you can't open one by accident. From there:
 - **Move to trash** moves it to Gmail Trash, where it can be recovered for 30 days.
-- **Block sender & trash** also adds a Gmail filter that sends future mail from that address to Trash. Undo it in Gmail under Settings → Filters and Blocked Addresses.
+- **Block sender & trash** also adds a Gmail filter that sends future mail from that address to Trash.
+- The **History & blocked** tab lists everything you've trashed or blocked. **Restore** takes an email out of Gmail Trash, and for blocked emails it also removes the block. **Unblock** deletes a sender's block filter. This includes "Delete it" filters you created in Gmail yourself.
 - **✓ Safe / ⚠ Scam** records your verdict. Use the label filter to find emails you haven't labelled yet.
 
 To check the scorer's accuracy after changing it:
