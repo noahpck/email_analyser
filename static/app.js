@@ -443,7 +443,7 @@ async function init() {
     if (DEMO) {
       $("demo-banner").hidden = false;
       $("sync-box").hidden = true;
-      $("tab-history").hidden = true;
+      document.querySelector(".tabs").hidden = true; // only one tab in the demo
       if (cfg.repo_url) {
         const a = $("demo-repo");
         a.href = cfg.repo_url;
