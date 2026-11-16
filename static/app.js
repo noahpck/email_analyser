@@ -216,6 +216,7 @@ function emailRow(e) {
   });
   paintLabel(e, labelBtns, pill);
 
+  const detailBox = el("div", { className: "detail" });
   const row = el("details", {},
     el("summary", {},
       el("span", { className: `score ${level(e.score)}`, textContent: e.score }),
@@ -223,12 +224,71 @@ function emailRow(e) {
         el("div", { className: "subject", textContent: e.subject || "(no subject)" }),
         el("div", { className: "sender", textContent: e.from_name ? `${e.from_name} · ${e.sender}` : e.sender })),
       pill),
-    el("div", { className: "body" }, meta, el("ul", { className: "reasons" }, ...reasons),
+    el("div", { className: "body" }, meta, el("ul", { className: "reasons" }, ...reasons), detailBox,
       el("div", { className: "actions" },
         el("div", { className: "label-group", role: "group", ariaLabel: "Your verdict" }, ...labelBtns),
         el("span", { className: "spacer" }), trashBtn, blockBtn)));
   row.dataset.id = e.msg_id;
+  row.addEventListener("toggle", () => { if (row.open && !detailBox.dataset.loaded) loadDetail(e, detailBox); });
   return row;
+}
+
+async function loadDetail(e, box) {
+  box.dataset.loaded = "1";
+  box.replaceChildren(el("p", { className: "muted", textContent: "Loading message…" }));
+  let d;
+  try {
+    const res = await fetch(`/api/emails/${encodeURIComponent(e.msg_id)}/detail`);
+    if (!res.ok) throw new Error(res.status === 404 ? "the .eml file is missing" : `HTTP ${res.status}`);
+    d = await res.json();
+  } catch (err) {
+    delete box.dataset.loaded;
+    box.replaceChildren(el("p", { className: "muted", textContent: `Couldn't load message: ${err.message}` }));
+    return;
+  }
+  const parts = [];
+
+  // authentication
+  const auth = el("div", { className: "auth" });
+  if (d.auth) {
+    for (const k of ["spf", "dkim", "dmarc"]) {
+      const v = d.auth[k];
+      const cls = v === "pass" ? "ok" : v === "none" ? "neutral" : "bad";
+      auth.append(el("span", { className: `auth-item ${cls}`, textContent: `${k.toUpperCase()} ${v}` }));
+    }
+  } else {
+    auth.append(el("span", { className: "auth-item neutral", textContent: "No Gmail auth results (draft or self-sent)" }));
+  }
+  parts.push(auth);
+
+  const extra = el("dl", { className: "meta" });
+  for (const [k, v] of [["Reply-To", d.reply_to], ["Return-Path", d.return_path], ["Attachments", d.attachments.join(", ")]]) {
+    if (v) extra.append(el("dt", { textContent: k }), el("dd", { textContent: v }));
+  }
+  if (extra.children.length) parts.push(extra);
+
+  // message body (plain text only, never rendered as HTML)
+  parts.push(el("h3", { textContent: "Message" }),
+    el("pre", { className: "message", textContent: d.body || "(no text content)" }));
+
+  // links
+  if (d.links.length) {
+    const warned = d.links.filter((l) => l.warning).length;
+    parts.push(el("h3", { textContent: `Links (${d.link_count}${warned ? ` · ${warned} suspicious` : ""})` }));
+    const ul = el("ul", { className: "links" });
+    for (const l of [...d.links].sort((a, b) => !!b.warning - !!a.warning)) {
+      const li = el("li", { className: l.warning ? "warn" : "" },
+        el("div", { className: "link-head" },
+          l.warning ? el("span", { className: "link-warn", textContent: `⚠ ${l.warning}` }) : "",
+          el("span", { className: "link-host", textContent: l.host })),
+        l.text && l.text !== l.href ? el("div", { className: "link-text", textContent: `Shown as: ${l.text}` }) : "",
+        el("div", { className: "link-url", textContent: l.href }));
+      ul.append(li);
+    }
+    parts.push(ul);
+    if (d.link_count > d.links.length) parts.push(el("p", { className: "muted", textContent: `…and ${d.link_count - d.links.length} more` }));
+  }
+  box.replaceChildren(...parts);
 }
 
 function paintLabel(e, buttons, pill) {

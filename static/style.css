@@ -131,6 +131,29 @@ button.btn.primary:hover { filter: brightness(1.08); }
 button.btn:disabled { opacity: 0.55; cursor: progress; }
 button.btn:focus-visible { outline: 2px solid var(--accent); outline-offset: 2px; }
 
+/* email detail */
+.detail { margin-bottom: 14px; }
+.detail h3 { font-size: 0.85rem; font-weight: 600; color: var(--muted); margin: 14px 0 6px; text-transform: uppercase; letter-spacing: 0.04em; }
+.auth { display: flex; gap: 6px; flex-wrap: wrap; margin-bottom: 4px; }
+.auth-item { font-size: 0.78rem; font-weight: 600; border-radius: 6px; padding: 2px 8px; font-variant-numeric: tabular-nums; }
+.auth-item.ok { background: rgb(79 197 139 / 0.12); color: var(--ok); }
+.auth-item.bad { background: rgb(242 102 107 / 0.15); color: var(--danger); }
+.auth-item.neutral { background: var(--surface-2); color: var(--muted); }
+.message {
+  margin: 0; max-height: 320px; overflow: auto; white-space: pre-wrap; overflow-wrap: anywhere;
+  background: var(--bg); border: 1px solid var(--border); border-radius: 8px; padding: 12px;
+  font: 0.86rem/1.5 ui-monospace, SFMono-Regular, Menlo, monospace; color: #cfd5df;
+}
+.links { list-style: none; margin: 0; padding: 0; max-height: 280px; overflow: auto; border: 1px solid var(--border); border-radius: 8px; }
+.links li { padding: 8px 12px; border-bottom: 1px solid var(--border); font-size: 0.84rem; }
+.links li:last-child { border-bottom: 0; }
+.links li.warn { background: rgb(242 102 107 / 0.06); }
+.link-head { display: flex; gap: 8px; align-items: baseline; flex-wrap: wrap; }
+.link-host { font-weight: 600; overflow-wrap: anywhere; }
+.link-warn { color: var(--danger); font-size: 0.78rem; font-weight: 600; }
+.link-text { color: var(--text); opacity: 0.8; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.link-url { color: var(--muted); font-family: ui-monospace, monospace; font-size: 0.76rem; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+
 /* toasts */
 .toasts { position: fixed; right: 16px; bottom: 16px; display: flex; flex-direction: column; gap: 8px; z-index: 20; }
 .toast {

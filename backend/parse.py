@@ -31,7 +31,8 @@ class Email:
     to_addrs: list[str] = field(default_factory=list)  # To + Cc
     message_id: str = ""
     is_reply: bool = False  # has In-Reply-To / References
-    text: str = ""  # visible body text, truncated
+    text: str = ""  # visible body text on one line, truncated (for scoring)
+    body: str = ""  # readable body text with line breaks (for display)
     links: list[Link] = field(default_factory=list)
     attachments: list[str] = field(default_factory=list)
 
@@ -60,10 +61,19 @@ def _trusted_auth(msg):
     return re.sub(r"\([^)]*\)", "", str(headers[0]))
 
 
+def _readable(parts):
+    """Prefer the plain-text part (what the sender wrote for text clients), else HTML."""
+    chosen = [t for kind, t in parts if kind == "plain" and t.strip()] or [t for _, t in parts]
+    text = "\n\n".join(chosen)
+    text = re.sub(r"[ \t\u00a0\u034f\u00ad\u200b-\u200d]+", " ", text)  # incl. invisible padding
+    text = re.sub(r" ?\n ?", "\n", text)
+    return re.sub(r"\n{3,}", "\n\n", text).strip()[:20000]
+
+
 def parse_eml(path):
     msg = BytesParser(policy=policy.default).parsebytes(Path(path).read_bytes())
     from_name, from_addr = parseaddr(str(msg.get("From", "")))
-    links, attachments, text = [], [], []
+    links, attachments, text, body_parts = [], [], [], []
 
     for part in msg.walk():
         if part.is_multipart():
@@ -77,11 +87,13 @@ def parse_eml(path):
             for a in soup.find_all("a", href=True):
                 links.append(Link(a["href"].strip(), a.get_text(" ", strip=True)))
             text.append(soup.get_text(" ", strip=True))
+            body_parts.append(("html", soup.get_text("\n", strip=True)))
         elif ctype == "text/plain":
             body = _body(part)
             for url in URL_RE.findall(body):
                 links.append(Link(url, url))
             text.append(body)
+            body_parts.append(("plain", body))
 
     return Email(
         msg_id=Path(path).stem,
@@ -98,6 +110,7 @@ def parse_eml(path):
         message_id=str(msg.get("Message-ID", "")).strip(),
         is_reply=bool(msg.get("In-Reply-To") or msg.get("References")),
         text=" ".join(" ".join(text).split())[:5000],
+        body=_readable(body_parts),
         links=links,
         attachments=attachments,
     )

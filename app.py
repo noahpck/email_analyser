@@ -1,6 +1,7 @@
 import json
 import logging
 import os
+import re
 import sqlite3
 import sys
 import threading
@@ -14,8 +15,11 @@ from googleapiclient.errors import HttpError
 
 sys.path.insert(0, str(Path(__file__).parent / "backend"))
 import sync as gmail_sync  # noqa: E402
-from analyse import connect  # noqa: E402
+from analyse import SAMPLES, connect  # noqa: E402
 from gmail import block_sender, get_service, trash_message  # noqa: E402
+from parse import parse_eml  # noqa: E402
+from score import (DOMAIN_IN_TEXT, FREE_HOSTING, TRACKERS, auth_result,  # noqa: E402
+                   reg_domain, same_org)
 
 SYNC_MINUTES = float(os.environ.get("SYNC_MINUTES", 5))  # 0 disables background sync
 log = logging.getLogger("email_analyser")
@@ -84,6 +88,48 @@ def emails():
             "WHERE r.msg_id NOT IN (SELECT msg_id FROM actions) ORDER BY score DESC"
         ).fetchall()
     return jsonify([{**dict(r), "reasons": json.loads(r["reasons"])} for r in rows])
+
+
+def describe_link(link, from_dom):
+    """Where a link really goes, and why it might be misleading."""
+    host = (urlparse(link.href).hostname or "") if "://" in link.href else ""
+    dom = reg_domain(link.href) or host
+    warning = None
+    shown = DOMAIN_IN_TEXT.search(link.text or "")
+    shown_dom = reg_domain(shown.group(1)) if shown else ""
+    if host and FREE_HOSTING.search(host):
+        warning = "free file hosting"
+    elif host and re.fullmatch(r"[\d.]+|\[[\da-f:]+\]", host):
+        warning = "raw IP address"
+    elif shown_dom and dom and not same_org(shown_dom, dom) and dom not in TRACKERS:
+        warning = f"text says {shown_dom}"
+    elif dom and dom not in TRACKERS and not (from_dom and same_org(dom, from_dom)):
+        warning = "different site from sender"
+    return {"text": (link.text or "")[:200], "href": link.href[:500], "host": host or link.href[:60],
+            "warning": warning}
+
+
+@app.get("/api/emails/<msg_id>/detail")
+def detail(msg_id):
+    with db() as con:
+        row = con.execute("SELECT source FROM results WHERE msg_id = ?", (msg_id,)).fetchone()
+    if not row:
+        abort(404)
+    path = (SAMPLES / row["source"] / f"{msg_id}.eml").resolve()
+    if SAMPLES.resolve() not in path.parents or not path.exists():
+        abort(404)
+    e = parse_eml(path)
+    from_dom = reg_domain(e.from_addr)
+    links, seen = [], set()
+    for link in e.links:
+        if link.href in seen or not link.href.lower().startswith(("http://", "https://")):
+            continue
+        seen.add(link.href)
+        links.append(describe_link(link, from_dom))
+    auth = ({k: auth_result(e.auth_results, k) for k in ("spf", "dkim", "dmarc")}
+            if e.auth_results else None)
+    return jsonify(body=e.body, links=links[:100], link_count=len(links), auth=auth,
+                   reply_to=e.reply_to, return_path=e.return_path, attachments=e.attachments)
 
 
 @app.get("/api/status")
