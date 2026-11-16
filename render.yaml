@@ -1,0 +1,17 @@
+# Render Blueprint for the public read-only demo (no Gmail access).
+# Render dashboard -> New -> Blueprint -> pick this repo.
+services:
+  - type: web
+    name: email-analyser-demo
+    runtime: python
+    plan: free
+    buildCommand: pip install -r requirements.txt
+    startCommand: gunicorn app:app --bind 0.0.0.0:$PORT --workers 2
+    healthCheckPath: /api/config
+    envVars:
+      - key: DEMO
+        value: "1"
+      - key: REPO_URL
+        value: https://github.com/noahpck/email_analyser
+      - key: PYTHON_VERSION
+        value: "3.12.8"

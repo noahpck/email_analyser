@@ -1,0 +1,18 @@
+Delivered-To: alex.doe@example.com
+Authentication-Results: mx.google.com;
+       spf=softfail smtp.mailfrom=s.mitchell@qzxvbtrk.com
+Return-Path: <s.mitchell@qzxvbtrk.com>
+From: "Sarah Mitchell" <s.mitchell@qzxvbtrk.com>
+To: undisclosed-recipients:;
+Subject: Re: updated bank details
+Date: Wed, 11 Nov 2026 13:20:00 +0000
+Message-ID: <demo-fake-reply@qzxvbtrk.com>
+MIME-Version: 1.0
+Content-Type: text/plain; charset="utf-8"
+
+Hi,
+
+As discussed, our bank details have changed. Please send this month's payment to the new account below and confirm once done.
+
+Thanks,
+Sarah

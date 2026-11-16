@@ -1,0 +1,14 @@
+Delivered-To: alex.doe@example.com
+Authentication-Results: mx.google.com;
+       dkim=pass header.i=@x7.sb01.qwkzvt.my.id header.s=mail header.b=abc;
+       spf=pass smtp.mailfrom=1-2@sb01.qwkzvt.my.id
+Return-Path: <153-353524@sb037.qwkzvt.my.id>
+From: alex.doe <alert-4043@vneeu.csi>
+To: me@aol.com
+Subject: Action Required: Storage 100% Full
+Date: Wed, 04 Nov 2026 03:40:00 +0000
+Message-ID: <99765-alex.doe@0LYdVmo.csi>
+MIME-Version: 1.0
+Content-Type: text/html; charset="utf-8"
+
+<h2>Cloud Services</h2><p>Payment failed for your Cloud storage renewal. We couldn't renew your subscription because your payment method has expired. Your photos and files will be deleted.</p><p><a href="https://storage.googleapis.com/bucket-8812/renew.html">Update payment method</a></p>

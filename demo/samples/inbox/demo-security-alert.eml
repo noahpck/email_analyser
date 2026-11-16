@@ -1,0 +1,15 @@
+Delivered-To: alex.doe@example.com
+Authentication-Results: mx.google.com;
+       dkim=pass header.i=@accounts.google.com header.s=s1 header.b=abc;
+       spf=pass smtp.mailfrom=bounce@accounts.google.com;
+       dmarc=pass (p=REJECT sp=REJECT dis=NONE) header.from=accounts.google.com
+Return-Path: <no-reply@accounts.google.com>
+From: "Google" <no-reply@accounts.google.com>
+To: alex.doe@example.com
+Subject: Security alert: new sign-in on Windows
+Date: Fri, 13 Nov 2026 21:10:00 +0000
+Message-ID: <demo-security-alert@accounts.google.com>
+MIME-Version: 1.0
+Content-Type: text/html; charset="utf-8"
+
+<p>We noticed a new sign-in to your Google Account on a Windows device. If this was you, you don't need to do anything.</p><p><a href="https://myaccount.google.com/notifications">Check activity</a></p>

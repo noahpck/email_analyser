@@ -1,0 +1,17 @@
+Delivered-To: alex.doe@example.com
+Authentication-Results: mx.google.com;
+       dkim=pass header.i=@sendgrid.info header.s=smtpapi header.b=abc;
+       dkim=pass header.i=@shop.example.co.nz header.s=s1 header.b=def;
+       spf=pass smtp.mailfrom=bounces@sendgrid.net;
+       dmarc=pass (p=NONE sp=NONE dis=NONE) header.from=example.co.nz
+Return-Path: <bounces+123@sendgrid.net>
+From: "Example Shop" <news@shop.example.co.nz>
+To: alex.doe@example.com
+Reply-To: help@example.zendesk.com
+Subject: Our biggest sale of the year starts Friday
+Date: Wed, 04 Nov 2026 19:00:00 +0000
+Message-ID: <x1y2z3@geopod-ismtpd-8>
+MIME-Version: 1.0
+Content-Type: text/html; charset="utf-8"
+
+<p>Free shipping for a limited time! Up to 50% off everything.</p><p><a href="https://u123.ct.sendgrid.net/ls/click?upn=abc">example.co.nz</a></p>

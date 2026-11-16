@@ -1,0 +1,19 @@
+Delivered-To: alex.doe@example.com
+Authentication-Results: mx.google.com;
+       dkim=pass header.i=@gmail.com header.s=s1 header.b=abc;
+       spf=pass smtp.mailfrom=bounce@gmail.com;
+       dmarc=pass (p=REJECT sp=REJECT dis=NONE) header.from=gmail.com
+Return-Path: <jordan.lee.office@gmail.com>
+From: "Jordan Lee" <jordan.lee.office@gmail.com>
+To: alex.doe@example.com
+Subject: Quick favour?
+Date: Thu, 12 Nov 2026 09:55:00 +0000
+Message-ID: <CAF8x2k@mail.gmail.com>
+MIME-Version: 1.0
+Content-Type: text/plain; charset="utf-8"
+
+Hi Alex,
+
+Are you free? I'm stuck in meetings and need you to pick up four $100 gift cards for a client today. I'll pay you back this afternoon. Reply when you can.
+
+Jordan

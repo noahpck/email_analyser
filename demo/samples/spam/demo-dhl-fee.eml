@@ -1,0 +1,14 @@
+Delivered-To: alex.doe@example.com
+Authentication-Results: mx.google.com;
+       dkim=pass header.i=@parcel-status-update.info header.s=s1 header.b=abc;
+       spf=pass smtp.mailfrom=notice@parcel-status-update.info
+Return-Path: <notice@parcel-status-update.info>
+From: "DHL Express" <notice@parcel-status-update.info>
+To: alex.doe@example.com
+Subject: Your parcel is on hold: customs fee unpaid
+Date: Fri, 06 Nov 2026 07:30:00 +0000
+Message-ID: <demo-dhl-fee@parcel-status-update.info>
+MIME-Version: 1.0
+Content-Type: text/html; charset="utf-8"
+
+<p>Your shipment 7741-2209 is waiting at our depot. A customs fee of $2.99 is required before delivery.</p><p>Pay now: <a href="https://pay-parcel-fee.info/dhl/7741">https://www.dhl.com/track/7741</a></p>

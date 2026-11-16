@@ -1,0 +1,13 @@
+Delivered-To: alex.doe@example.com
+Authentication-Results: mx.google.com;
+       spf=pass smtp.mailfrom=return21808@ha8nh2d119vt0sd65.fz68w4yxcrpcdij.asstrowix.com
+Return-Path: <return21808@1050765.108.61.128ha8nh2d119vt0sd65.108.61.128fz68w4yxcrpcdij.asstrowix.com>
+From: "𝖬𝗒𝖢𝗁𝖺𝗋𝗍" <oujwalrj@ylwfrqnox.us>
+To: alex.doe@example.com
+Subject: alex.doe, Claim Your Free Medicare Kit
+Date: Thu, 05 Nov 2026 22:05:00 +0000
+Message-ID: <6af1fbf9.33f49058.57a64.bd21SMTPIN_ADDED_MISSING@mx.google.com>
+MIME-Version: 1.0
+Content-Type: text/html; charset="utf-8"
+
+<p>Dear MyChart Customer,</p><p>You have been chosen to receive a completely new Medicare Kit! Answer a short survey to claim your gift.</p><p><a href="https://storage.googleapis.com/kit-offer-22/start.html">Start survey</a></p>

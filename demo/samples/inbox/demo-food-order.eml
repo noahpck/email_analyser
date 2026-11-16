@@ -1,0 +1,16 @@
+Delivered-To: alex.doe@example.com
+Authentication-Results: mx.google.com;
+       dkim=pass header.i=@exampleeats.com header.s=s1 header.b=abc;
+       spf=pass smtp.mailfrom=bounce@exampleeats.com;
+       dmarc=pass (p=REJECT sp=REJECT dis=NONE) header.from=exampleeats.com
+Return-Path: <bounce@exampleeats.com>
+From: "Example Eats" <orders@exampleeats.com>
+To: alex.doe@example.com
+Reply-To: support@exampleeats.zendesk.com
+Subject: Your order is on the way
+Date: Wed, 11 Nov 2026 19:40:00 +0000
+Message-ID: <demo-food-order@exampleeats.com>
+MIME-Version: 1.0
+Content-Type: text/html; charset="utf-8"
+
+<p>Your driver is 10 minutes away. Order #8812: 2x pad thai.</p><p><a href="https://www.exampleeats.com/orders/8812">Track order</a></p>

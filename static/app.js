@@ -1,5 +1,7 @@
 // Email fields are attacker-controlled: only ever insert them with textContent.
-const FLAG_AT = 40; // keep in sync with backend/score.py
+let FLAG_AT = 40; // replaced by the server's value from /api/config
+let DEMO = false;
+const DEMO_LABELS_KEY = "demo-labels";
 const PALETTE = ["#6ea8fe", "#f2666b", "#4fc58b", "#f0b552", "#c39bf5"];
 const SVG = "http://www.w3.org/2000/svg";
 
@@ -32,6 +34,10 @@ async function load() {
     const res = await fetch("/api/emails");
     if (!res.ok) throw new Error(`HTTP ${res.status}`);
     state.emails = await res.json();
+    if (DEMO) { // labels live in this browser only
+      const saved = readDemoLabels();
+      for (const e of state.emails) e.label = saved[e.msg_id] || null;
+    }
   } catch (err) {
     $("list").replaceChildren(el("p", { className: "muted", textContent: `Couldn't load emails: ${err.message}. Run backend/analyse.py first?` }));
     return;
@@ -87,8 +93,10 @@ $("sync-now").addEventListener("click", async () => {
     pollStatus();
   }
 });
-setInterval(pollStatus, 20000);
-pollStatus();
+function startSyncPolling() {
+  setInterval(pollStatus, 20000);
+  pollStatus();
+}
 
 function filtered() {
   const q = state.query.toLowerCase();
@@ -228,7 +236,7 @@ function emailRow(e) {
     el("div", { className: "body" }, meta, el("ul", { className: "reasons" }, ...reasons), detailBox,
       el("div", { className: "actions" },
         el("div", { className: "label-group", role: "group", ariaLabel: "Your verdict" }, ...labelBtns),
-        el("span", { className: "spacer" }), trashBtn, blockBtn)));
+        el("span", { className: "spacer" }), ...(DEMO ? [] : [trashBtn, blockBtn]))));
   row.dataset.id = e.msg_id;
   row.addEventListener("toggle", () => { if (row.open && !detailBox.dataset.loaded) loadDetail(e, detailBox); });
   return row;
@@ -299,10 +307,20 @@ function paintLabel(e, buttons, pill) {
   pill.hidden = !e.label;
 }
 
+function readDemoLabels() {
+  try { return JSON.parse(localStorage.getItem(DEMO_LABELS_KEY)) || {}; } catch { return {}; }
+}
+
 async function setLabel(e, label, buttons, pill) {
   const previous = e.label;
   e.label = label;
   paintLabel(e, buttons, pill); // optimistic; reverted on failure
+  if (DEMO) {
+    const saved = readDemoLabels();
+    if (label) saved[e.msg_id] = label; else delete saved[e.msg_id];
+    try { localStorage.setItem(DEMO_LABELS_KEY, JSON.stringify(saved)); } catch { /* private mode: keep in memory */ }
+    return;
+  }
   try {
     const res = await fetch(`/api/emails/${encodeURIComponent(e.msg_id)}/label`, {
       method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ label }),
@@ -417,4 +435,26 @@ $("label-filter").addEventListener("change", (ev) => { state.label = ev.target.v
 $("flagged-only").addEventListener("change", (ev) => { state.flaggedOnly = ev.target.checked; renderList(); });
 let resizeTimer;
 addEventListener("resize", () => { clearTimeout(resizeTimer); resizeTimer = setTimeout(renderChart, 150); });
-load();
+async function init() {
+  try {
+    const cfg = await getJSON("/api/config");
+    FLAG_AT = cfg.flag_at;
+    DEMO = cfg.demo;
+    if (DEMO) {
+      $("demo-banner").hidden = false;
+      $("sync-box").hidden = true;
+      $("tab-history").hidden = true;
+      if (cfg.repo_url) {
+        const a = $("demo-repo");
+        a.href = cfg.repo_url;
+        a.hidden = false;
+      }
+    } else if (cfg.sync) {
+      startSyncPolling();
+    } else {
+      $("sync-status").textContent = "Auto-sync off";
+    }
+  } catch { startSyncPolling(); /* older server: assume defaults */ }
+  load();
+}
+init();

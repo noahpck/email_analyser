@@ -1,0 +1,15 @@
+Delivered-To: alex.doe@example.com
+Authentication-Results: mx.google.com;
+       dkim=pass header.i=@github.com header.s=s1 header.b=abc;
+       spf=pass smtp.mailfrom=bounce@github.com;
+       dmarc=pass (p=REJECT sp=REJECT dis=NONE) header.from=github.com
+Return-Path: <noreply@github.com>
+From: "Sam Rivera" <notifications@github.com>
+To: alex.doe@example.com
+Subject: [alex-doe/website] Pull request #12: Fix mobile layout
+Date: Thu, 05 Nov 2026 10:31:00 +0000
+Message-ID: <demo-github@github.com>
+MIME-Version: 1.0
+Content-Type: text/html; charset="utf-8"
+
+<p>@sam-rivera requested your review on this pull request.</p><p><a href="https://github.com/alex-doe/website/pull/12">View it on GitHub</a></p>

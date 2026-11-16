@@ -1,0 +1,29 @@
+Delivered-To: alex.doe@example.com
+Authentication-Results: mx.google.com;
+       spf=fail smtp.mailfrom=ap@northwind-billing.com;
+       dmarc=fail (p=NONE sp=NONE dis=NONE) header.from=northwind-billing.com
+Return-Path: <ap@northwind-billing.com>
+From: "Accounts Payable" <ap@northwind-billing.com>
+To: alex.doe@example.com
+Subject: Overdue invoice #44921
+Date: Tue, 10 Nov 2026 08:02:00 +0000
+Message-ID: <demo-invoice-exe@northwind-billing.com>
+MIME-Version: 1.0
+Content-Type: multipart/mixed; boundary="B"
+
+--B
+Content-Type: text/plain; charset="utf-8"
+
+Hello,
+
+Please find attached the overdue invoice. Payment is required by Friday.
+
+Regards,
+Accounts
+--B
+Content-Type: application/octet-stream; name="invoice_44921.pdf.exe"
+Content-Disposition: attachment; filename="invoice_44921.pdf.exe"
+Content-Transfer-Encoding: base64
+
+TVqQAAMAAAAEAAAA
+--B--
