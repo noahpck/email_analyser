@@ -1,5 +1,6 @@
 import os
 import pathlib
+import re
 
 from google.auth.transport.requests import Request
 from google.oauth2.credentials import Credentials
@@ -35,7 +36,10 @@ def get_service():
                     "Google sign-in didn't grant: " + ", ".join(sorted(missing))
                     + ". Sign in again and tick every permission checkbox."
                 )
-        pathlib.Path("token.json").write_text(creds.to_json())
+        token = pathlib.Path("token.json")
+        token.touch(mode=0o600, exist_ok=True)
+        token.chmod(0o600)  # it grants access to your mailbox: owner-only
+        token.write_text(creds.to_json())
     return build("gmail", "v1", credentials=creds, cache_discovery=False)
 
 
@@ -44,8 +48,15 @@ def trash_message(svc, msg_id):
     svc.users().messages().trash(userId="me", id=msg_id).execute()
 
 
+# A plain address only. Senders control this value, and quotes, spaces, OR, * or braces
+# would be read as Gmail search syntax and could widen the filter to other people's mail.
+SAFE_ADDRESS = re.compile(r"[a-z0-9._%+-]+@[a-z0-9-]+(\.[a-z0-9-]+)+", re.I)
+
+
 def block_sender(svc, sender):
     """Create a filter that sends all future mail from `sender` straight to Trash."""
+    if not SAFE_ADDRESS.fullmatch(sender or ""):
+        raise ValueError(f"Won't block {sender!r}: not a plain email address.")
     body = {"criteria": {"from": sender}, "action": {"addLabelIds": ["TRASH"]}}
     try:
         svc.users().settings().filters().create(userId="me", body=body).execute()

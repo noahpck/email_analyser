@@ -18,7 +18,7 @@ from googleapiclient.errors import HttpError
 sys.path.insert(0, str(Path(__file__).parent / "backend"))
 import sync as gmail_sync  # noqa: E402
 import analyse  # noqa: E402
-from gmail import (block_sender, get_service, list_blocks, trash_message,  # noqa: E402
+from gmail import (SAFE_ADDRESS, block_sender, get_service, list_blocks, trash_message,  # noqa: E402
                    unblock_sender, untrash_message)
 from parse import parse_eml  # noqa: E402
 from score import (DOMAIN_IN_TEXT, FLAG_AT, FREE_HOSTING, TRACKERS, auth_result,  # noqa: E402
@@ -83,6 +83,7 @@ def sync_loop():
 
 
 DEMO_DISABLED = {"history", "blocked"}  # GET endpoints that need Gmail
+LOCAL_HOSTS = {"localhost", "127.0.0.1", "[::1]"}
 
 
 @app.before_request
@@ -90,6 +91,10 @@ def same_origin_only():
     """Block other websites from triggering actions on this local server."""
     if DEMO and (request.method == "POST" or request.endpoint in DEMO_DISABLED):
         return jsonify(error="Gmail actions are turned off in the demo."), 403
+    # DNS rebinding: a malicious site can point its own domain at 127.0.0.1, so the
+    # same-origin check below would pass. The local app only answers to localhost.
+    if not DEMO and request.host.rsplit(":", 1)[0] not in LOCAL_HOSTS:
+        abort(403)
     if request.method == "POST":
         origin = request.headers.get("Origin")
         if origin and urlparse(origin).netloc != request.host:
@@ -207,6 +212,9 @@ def trash(msg_id):
         row = con.execute("SELECT sender FROM results WHERE msg_id = ?", (msg_id,)).fetchone()
         if not row:
             abort(404)
+        if block and not SAFE_ADDRESS.fullmatch(row["sender"] or ""):
+            return jsonify(error=f"Can't block {row['sender']!r}: not a plain email address. "
+                                 "Use Move to trash instead."), 400
         try:
             svc = get_service()
             trash_message(svc, msg_id)
