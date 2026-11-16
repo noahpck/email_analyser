@@ -49,7 +49,8 @@ function ago(iso) {
   const s = Math.round((Date.now() - Date.parse(iso)) / 1000);
   if (s < 60) return "just now";
   if (s < 3600) return `${Math.floor(s / 60)} min ago`;
-  return `${Math.floor(s / 3600)} h ago`;
+  if (s < 172800) return `${Math.floor(s / 3600)} h ago`;
+  return `${Math.floor(s / 86400)} days ago`;
 }
 function showStatus(st) {
   const label = $("sync-status");
@@ -332,6 +333,84 @@ async function act(e, block, buttons) {
     toast(err.message, true);
   }
 }
+
+// --- history & blocked senders ---
+const ACTION_LABELS = { trashed: "Trashed", blocked: "Blocked + trashed", removed_in_gmail: "Removed in Gmail" };
+
+function showTab(name) {
+  for (const t of ["emails", "history"]) {
+    $(`tab-${t}`).setAttribute("aria-selected", t === name);
+    $(`view-${t}`).hidden = t !== name;
+  }
+  if (name === "history") loadHistory();
+  else renderChart(); // the chart can't measure itself while hidden
+}
+
+async function getJSON(url) {
+  const res = await fetch(url);
+  const data = await res.json().catch(() => ({}));
+  if (!res.ok) throw new Error(data.error || `HTTP ${res.status}`);
+  return data;
+}
+async function postJSON(url, body) {
+  const res = await fetch(url, { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify(body) });
+  const data = await res.json().catch(() => ({}));
+  if (!res.ok) throw new Error(data.error || `HTTP ${res.status}`);
+  return data;
+}
+
+async function loadHistory() {
+  loadBlocked();
+  const box = $("history");
+  let rows;
+  try { rows = await getJSON("/api/history"); } catch (err) {
+    box.replaceChildren(el("p", { className: "muted", textContent: `Couldn't load history: ${err.message}` }));
+    return;
+  }
+  if (!rows.length) { box.replaceChildren(el("p", { className: "muted", textContent: "Nothing trashed or blocked yet." })); return; }
+  box.replaceChildren(...rows.map((h) => {
+    const btn = el("button", { className: "btn", type: "button", textContent: h.action === "blocked" ? "Undo (restore + unblock)" : "Restore" });
+    btn.onclick = async () => {
+      btn.disabled = true;
+      try {
+        const r = await postJSON(`/api/emails/${encodeURIComponent(h.msg_id)}/undo`, {});
+        toast(r.unblocked ? `Restored and unblocked ${r.sender}` : "Restored to Gmail");
+        await Promise.all([loadHistory(), load()]);
+      } catch (err) { btn.disabled = false; toast(err.message, true); }
+    };
+    return el("div", { className: "row" },
+      el("span", { className: `badge ${h.action}`, textContent: ACTION_LABELS[h.action] || h.action }),
+      el("div", { className: "row-main" },
+        el("div", { className: "subject", textContent: h.subject || "(no subject)" }),
+        el("div", { className: "sender", textContent: `${h.sender || "unknown sender"} · ${h.at ? ago(h.at.replace(" ", "T") + "Z") : ""}` })),
+      btn);
+  }));
+}
+
+async function loadBlocked() {
+  const box = $("blocked");
+  let senders;
+  try { senders = await getJSON("/api/blocked"); } catch (err) {
+    box.replaceChildren(el("p", { className: "muted", textContent: `Couldn't load blocked senders: ${err.message}` }));
+    return;
+  }
+  if (!senders.length) { box.replaceChildren(el("p", { className: "muted", textContent: "No blocked senders." })); return; }
+  box.replaceChildren(...senders.map((sender) => {
+    const btn = el("button", { className: "btn", type: "button", textContent: "Unblock" });
+    btn.onclick = async () => {
+      btn.disabled = true;
+      try {
+        await postJSON("/api/blocked/unblock", { sender });
+        toast(`Unblocked ${sender}. Already-trashed emails stay in Trash.`);
+        loadBlocked();
+      } catch (err) { btn.disabled = false; toast(err.message, true); }
+    };
+    return el("div", { className: "row" }, el("div", { className: "row-main subject", textContent: sender }), btn);
+  }));
+}
+
+$("tab-emails").addEventListener("click", () => showTab("emails"));
+$("tab-history").addEventListener("click", () => showTab("history"));
 
 $("search").addEventListener("input", (ev) => { state.query = ev.target.value; renderList(); });
 $("label-filter").addEventListener("change", (ev) => { state.label = ev.target.value; renderList(); });

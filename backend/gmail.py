@@ -52,3 +52,24 @@ def block_sender(svc, sender):
     except HttpError as err:
         if "exists" not in str(err).lower():  # same filter already there is fine
             raise
+
+
+def untrash_message(svc, msg_id):
+    """Take a message out of Trash; it goes back to its original labels (e.g. Inbox)."""
+    svc.users().messages().untrash(userId="me", id=msg_id).execute()
+
+
+def list_blocks(svc):
+    """Filters that send a sender's mail to Trash: ours, or Gmail's 'Delete it' filters."""
+    filters = svc.users().settings().filters().list(userId="me").execute().get("filter", [])
+    return [{"id": f["id"], "sender": f["criteria"]["from"]} for f in filters
+            if f.get("criteria", {}).get("from")
+            and "TRASH" in f.get("action", {}).get("addLabelIds", [])]
+
+
+def unblock_sender(svc, sender):
+    """Delete every Trash filter for `sender`. Returns how many were removed."""
+    matches = [b for b in list_blocks(svc) if b["sender"].lower() == sender.lower()]
+    for b in matches:
+        svc.users().settings().filters().delete(userId="me", id=b["id"]).execute()
+    return len(matches)
